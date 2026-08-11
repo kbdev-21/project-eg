@@ -4,7 +4,6 @@ import (
 	"backend/src/config"
 	"backend/src/db"
 	"backend/src/domain/auth"
-	"log"
 	"strings"
 
 	"github.com/gofiber/fiber/v3"
@@ -20,13 +19,11 @@ func authMiddleware(q *db.Queries) fiber.Handler {
 
 		payload, err := auth.VerifyToken(token, config.AppJwkSet)
 		if err != nil {
-			log.Println(err)
 			return c.SendStatus(401)
 		}
 
 		currentUser, err := auth.SyncUserFromTokenPayload(c, q, payload)
 		if err != nil {
-			log.Println(err)
 			return c.SendStatus(401)
 		}
 
