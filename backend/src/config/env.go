@@ -9,15 +9,19 @@ import (
 
 type EnvVariables struct {
 	PostgresConnectionUrl string
+	JwksUrl               string
 }
 
-func LoadEnvVariables() EnvVariables {
+var Env EnvVariables
+
+func LoadEnv() {
 	err := godotenv.Load()
 	if err != nil {
-		log.Fatal("Error loading .env")
+		log.Fatal(err)
 	}
 
-	return EnvVariables{
+	Env = EnvVariables{
 		PostgresConnectionUrl: os.Getenv("POSTGRES_CONNECTION_URL"),
+		JwksUrl:               os.Getenv("JWKS_URL"),
 	}
 }

@@ -14,9 +14,10 @@ import (
 )
 
 func main() {
-	env := config.LoadEnvVariables()
+	config.LoadEnv()
+	config.FetchJwkSet()
 
-	dbConn, err := pgx.Connect(context.Background(), env.PostgresConnectionUrl)
+	dbConn, err := pgx.Connect(context.Background(), config.Env.PostgresConnectionUrl)
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -24,7 +25,7 @@ func main() {
 
 	queries := db.New(dbConn)
 
-    app := fiber.New()
+	app := fiber.New()
 
 	app.Use(cors.New())
 	app.Use(logger.New())
@@ -33,7 +34,8 @@ func main() {
 		return c.JSON("Welcome to Project EG")
 	})
 
-    http.InitRoutes(app, queries)
+	http.InitPublicRoutes(app, queries)
+	http.InitAuthRoutes(app, queries)
 
-    log.Fatal(app.Listen(":3000"))
+	log.Fatal(app.Listen(":3000"))
 }
