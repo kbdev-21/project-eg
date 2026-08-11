@@ -8,12 +8,15 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 )
 
-func ForceParseStringToUuid(s string) pgtype.UUID {
-	uid := uuid.MustParse(s)
+func ParseStringToUuid(s string) (pgtype.UUID, error) {
+	uid, err := uuid.Parse(s)
+	if(err != nil) {
+		return pgtype.UUID{}, err
+	}
 	return pgtype.UUID{
 		Bytes: uid,
 		Valid: true,
-	}
+	}, nil
 }
 
 func CapitalizeString(s string) string {

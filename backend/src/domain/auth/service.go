@@ -3,13 +3,17 @@ package auth
 import (
 	"backend/src/db"
 	"backend/src/shared"
+	"context"
 
-	"github.com/gofiber/fiber/v3"
 	"github.com/jackc/pgx/v5/pgtype"
 )
 
-func SyncUserFromTokenPayload(c fiber.Ctx, q *db.Queries, p TokenPayload) (db.User, error) {
-	idFromPayload := shared.ForceParseStringToUuid(p.Sub)
+func SyncUserFromTokenPayload(c context.Context, q *db.Queries, p TokenPayload) (db.User, error) {
+	idFromPayload, err := shared.ParseStringToUuid(p.Sub)
+	if err != nil {
+		return db.User{}, err
+	}
+
 	updateRole := db.UserRoleUSER
 	updateEmail := pgtype.Text{
 		String: p.Email,

@@ -4,26 +4,27 @@ import (
 	"backend/src/config"
 	"backend/src/db"
 	"backend/src/http"
+	"backend/src/ws"
 	"context"
 	"log"
 
 	"github.com/gofiber/fiber/v3"
 	"github.com/gofiber/fiber/v3/middleware/cors"
 	"github.com/gofiber/fiber/v3/middleware/logger"
-	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgxpool"
 )
 
 func main() {
 	config.LoadEnv()
 	config.FetchJwkSet()
 
-	dbConn, err := pgx.Connect(context.Background(), config.Env.PostgresConnectionUrl)
+	dbPool, err := pgxpool.New(context.Background(), config.Env.PostgresConnectionUrl)
 	if err != nil {
 		log.Fatal(err)
 	}
-	defer dbConn.Close(context.Background())
+	defer dbPool.Close()
 
-	queries := db.New(dbConn)
+	queries := db.New(dbPool)
 
 	app := fiber.New()
 
@@ -36,6 +37,8 @@ func main() {
 
 	http.InitPublicRoutes(app, queries)
 	http.InitAuthRoutes(app, queries)
+	ws.InitWsRoutes(app, queries)
+	
 
 	log.Fatal(app.Listen(":3000"))
 }
