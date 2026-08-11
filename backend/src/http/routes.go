@@ -2,7 +2,6 @@ package http
 
 import (
 	"backend/src/db"
-
 	"github.com/gofiber/fiber/v3"
 )
 
@@ -19,7 +18,8 @@ func InitAuthRoutes(a *fiber.App, q *db.Queries) {
 	auth.Use(authMiddleware(q))
 
 	auth.Get("/api/me", func(c fiber.Ctx) error {
+		u := c.Locals("currentUser").(db.User)
 
-		return c.JSON("Me")
+		return c.JSON(u)
 	})
 }

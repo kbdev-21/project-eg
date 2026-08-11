@@ -69,9 +69,9 @@ INSERT INTO users (
 
 type InsertUserParams struct {
 	ID      pgtype.UUID `json:"id"`
-	Role    string      `json:"role"`
+	Role    UserRole    `json:"role"`
 	Name    string      `json:"name"`
-	AvtCode string      `json:"avtCode"`
+	AvtCode UserAvtCode `json:"avtCode"`
 	Email   pgtype.Text `json:"email"`
 }
 
@@ -99,9 +99,9 @@ WHERE id = $1
 
 type UpdateUserParams struct {
 	ID      pgtype.UUID `json:"id"`
-	Role    string      `json:"role"`
+	Role    UserRole    `json:"role"`
 	Name    string      `json:"name"`
-	AvtCode string      `json:"avtCode"`
+	AvtCode UserAvtCode `json:"avtCode"`
 	Email   pgtype.Text `json:"email"`
 }
 
