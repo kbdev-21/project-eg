@@ -10,48 +10,46 @@ import (
 	"github.com/gofiber/fiber/v3"
 )
 
-func InitPublicRoutes(a *fiber.App, q *db.Queries) {
-	a.Get("/api/users/:id", func(c fiber.Ctx) error {
-		id, err := shared.ParseStringToUuid(c.Params("id", "")) 
+func InitHttpRoutes(a *fiber.App, q *db.Queries, conf config.Config) {
+	a.Get("/api/me", authMiddleware(q, conf), func(ctx fiber.Ctx) error {
+		u := ctx.Locals("currentUser").(db.User)
+
+		return ctx.JSON(u)
+	})
+
+	a.Get("/api/users/:id", func(ctx fiber.Ctx) error {
+		id, err := shared.ParseStringToUuid(ctx.Params("id", ""))
 		if err != nil {
-			return c.SendStatus(400)
+			return ctx.SendStatus(400)
 		}
-		user, err := q.GetUserById(c, id)
+		user, err := q.GetUserById(ctx, id)
 		if err != nil {
-			return c.SendStatus(404)
+			return ctx.SendStatus(404)
 		}
-		return c.JSON(user)
+		return ctx.JSON(user)
 	})
 }
 
-func InitAuthRoutes(a *fiber.App, q *db.Queries) {
-	a.Get("/api/me", authMiddleware(q), func(c fiber.Ctx) error {
-		u := c.Locals("currentUser").(db.User)
-
-		return c.JSON(u)
-	})
-}
-
-func authMiddleware(q *db.Queries) fiber.Handler {
-	return func(c fiber.Ctx) error {
-		authHeader := c.Get("Authorization")
+func authMiddleware(q *db.Queries, conf config.Config) fiber.Handler {
+	return func(ctx fiber.Ctx) error {
+		authHeader := ctx.Get("Authorization")
 		if !strings.HasPrefix(authHeader, "Bearer ") {
-			return c.SendStatus(401)
+			return ctx.SendStatus(401)
 		}
 		token := strings.TrimPrefix(authHeader, "Bearer ")
 
-		payload, err := domain.VerifyToken(token, config.AppJwkSet)
+		payload, err := domain.VerifyToken(token, conf.JwkSet)
 		if err != nil {
-			return c.SendStatus(401)
+			return ctx.SendStatus(401)
 		}
 
-		currentUser, err := domain.SyncUserFromTokenPayload(c, q, payload)
+		currentUser, err := domain.SyncUserFromTokenPayload(ctx, q, payload)
 		if err != nil {
-			return c.SendStatus(401)
+			return ctx.SendStatus(401)
 		}
 
-		c.Locals("currentUser", currentUser)
+		ctx.Locals("currentUser", currentUser)
 
-		return c.Next()
+		return ctx.Next()
 	}
 }

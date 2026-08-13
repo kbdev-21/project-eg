@@ -2,15 +2,17 @@ package config
 
 import (
 	"encoding/json"
-	"log"
+	"fmt"
 	"net/http"
 	"os"
 
 	"github.com/joho/godotenv"
 )
 
-var PostgresConnectionUrl string
-var AppJwkSet JwkSet
+type Config struct {
+	PostgresConnectionUrl string
+	JwkSet JwkSet
+}
 
 type JwkSet struct {
 	Keys []struct {
@@ -25,32 +27,40 @@ type JwkSet struct {
 	} `json:"keys"`
 }
 
-func init() {
+func LoadConfig() (Config, error) {
 	err := godotenv.Load()
 	if err != nil {
-		log.Fatal(err)
+		return Config{}, err
 	}
 
-	PostgresConnectionUrl = os.Getenv("POSTGRES_CONNECTION_URL")
-	AppJwkSet = fetchJwkSet(os.Getenv("JWKS_URL"))
+	pgConnUrl := os.Getenv("POSTGRES_CONNECTION_URL")
+	jwkSet, err := fetchJwkSet(os.Getenv("JWKS_URL"))
+	if err != nil {
+		return Config{}, err
+	}
+
+	return Config{
+		PostgresConnectionUrl: pgConnUrl,
+		JwkSet: jwkSet,
+	}, nil
 }
 
-func fetchJwkSet(url string) JwkSet {
+func fetchJwkSet(url string) (JwkSet, error) {
 	var jwkSet JwkSet
 
 	res, err := http.Get(url)
 	if err != nil {
-		log.Fatal(err)
+		return jwkSet, err
 	}
 	defer res.Body.Close()
 
 	if res.StatusCode != http.StatusOK {
-		log.Fatal("Failed to fetch JWKS")
+		return jwkSet, fmt.Errorf("failed fetching JWKS")
 	}
 
 	if err := json.NewDecoder(res.Body).Decode(&jwkSet); err != nil {
-		log.Fatal(err)
+		return jwkSet, err
 	}
 
-	return jwkSet
+	return jwkSet, nil
 }

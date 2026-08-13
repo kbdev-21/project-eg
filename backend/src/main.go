@@ -14,7 +14,12 @@ import (
 )
 
 func main() {
-	dbPool, err := pgxpool.New(context.Background(), config.PostgresConnectionUrl)
+	conf, err := config.LoadConfig()
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	dbPool, err := pgxpool.New(context.Background(), conf.PostgresConnectionUrl)
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -27,13 +32,12 @@ func main() {
 	app.Use(cors.New())
 	app.Use(logger.New())
 
-	app.Get("/", func(c fiber.Ctx) error {
-		return c.JSON("Welcome to Project EG")
+	app.Get("/", func(ctx fiber.Ctx) error {
+		return ctx.JSON("Welcome to Project EG")
 	})
 
-	router.InitPublicRoutes(app, queries)
-	router.InitAuthRoutes(app, queries)
-	router.InitWsRoute(app, queries)
+	router.InitHttpRoutes(app, queries, conf)
+	router.InitWsRoute(app, queries, conf)
 
 	log.Fatal(app.Listen(":3000"))
 }

@@ -12,7 +12,7 @@ import (
 )
 
 // TODO: dùng mutex
-var sessionMap = map[pgtype.UUID]*websocket.Conn{}
+var userWsConnMap = map[pgtype.UUID]*websocket.Conn{}
 
 type ClientMessage struct {
 	Code ClientMessageCode `json:"code"`
@@ -26,19 +26,19 @@ const (
 	JoinQueue ClientMessageCode = "JOIN_QUEUE"
 )
 
-func InitWsRoute(a *fiber.App, q *db.Queries) {
-	a.Get("/ws", wsAuthMiddleware(q), websocket.New(func(wsc *websocket.Conn) {
+func InitWsRoute(a *fiber.App, q *db.Queries, conf config.Config) {
+	a.Get("/ws", wsAuthMiddleware(q, conf), websocket.New(func(wsc *websocket.Conn) {
 		u := wsc.Locals("currentUser").(db.User)
 		str := "You are " + u.Name
 		wsc.WriteMessage(websocket.TextMessage, []byte(str))
 
-		sessionMap[u.ID] = wsc
+		userWsConnMap[u.ID] = wsc
 
 		for {
 			_, data, err := wsc.ReadMessage()
 			// disconnect
 			if err != nil {
-				delete(sessionMap, u.ID)
+				delete(userWsConnMap, u.ID)
 				wsc.Close()
 				break
 			}
@@ -59,12 +59,12 @@ func InitWsRoute(a *fiber.App, q *db.Queries) {
 	}))
 }
 
-func wsAuthMiddleware(q *db.Queries) fiber.Handler {
+func wsAuthMiddleware(q *db.Queries, conf config.Config) fiber.Handler {
 	return func(c fiber.Ctx) error {
 		if websocket.IsWebSocketUpgrade(c) {
 			token := c.Query("token", "")
 
-			payload, err := domain.VerifyToken(token, config.AppJwkSet)
+			payload, err := domain.VerifyToken(token, conf.JwkSet)
 			if err != nil {
 				return c.SendStatus(401)
 			}

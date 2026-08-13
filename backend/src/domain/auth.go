@@ -8,18 +8,18 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 )
 
-func SyncUserFromTokenPayload(c context.Context, q *db.Queries, p TokenPayload) (db.User, error) {
-	idFromPayload, err := shared.ParseStringToUuid(p.Sub)
+func SyncUserFromTokenPayload(c context.Context, q *db.Queries, payload TokenPayload) (db.User, error) {
+	idFromPayload, err := shared.ParseStringToUuid(payload.Sub)
 	if err != nil {
 		return db.User{}, err
 	}
 
 	updateRole := db.UserRoleUSER
 	updateEmail := pgtype.Text{
-		String: p.Email,
+		String: payload.Email,
 		Valid:  true,
 	}
-	if p.IsAnonymous {
+	if payload.IsAnonymous {
 		updateRole = db.UserRoleGUEST
 		updateEmail = pgtype.Text{
 			String: "",
