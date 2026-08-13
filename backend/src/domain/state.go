@@ -7,37 +7,39 @@ import (
 )
 
 type AppState struct {
-	Mu           sync.Mutex
-	UserSessions map[pgtype.UUID]*UserSession
+	mu           sync.Mutex
+	userSessions map[pgtype.UUID]*UserSession
+	CaroQueue    MmQueue
 }
 
 func NewAppState() *AppState {
 	return &AppState{
-		Mu:           sync.Mutex{},
-		UserSessions: map[pgtype.UUID]*UserSession{},
+		mu:           sync.Mutex{},
+		userSessions: map[pgtype.UUID]*UserSession{},
+		CaroQueue:    MmQueue{},
 	}
 }
 
-func (s *AppState) GetUserSession(userId pgtype.UUID) (*UserSession, bool) {
-	s.Mu.Lock()
-	defer s.Mu.Unlock()
+func (s *AppState) SafeGetUserSession(userId pgtype.UUID) (*UserSession, bool) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
 
-	session, existed := s.UserSessions[userId]
+	session, existed := s.userSessions[userId]
 
 	return session, existed
 }
 
-func (s *AppState) GetOrCreateUserSession(userId pgtype.UUID) *UserSession {
-	s.Mu.Lock()
-	defer s.Mu.Unlock()
+func (s *AppState) SafeGetOrCreateUserSession(userId pgtype.UUID) *UserSession {
+	s.mu.Lock()
+	defer s.mu.Unlock()
 
-	session, ok := s.UserSessions[userId]
+	session, ok := s.userSessions[userId]
 	if !ok {
 		session = &UserSession{
 			UserId: userId,
 			State:  Idle,
 		}
-		s.UserSessions[userId] = session
+		s.userSessions[userId] = session
 	}
 
 	return session

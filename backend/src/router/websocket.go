@@ -19,20 +19,33 @@ type ClientMessage struct {
 type ClientMessageCode string
 
 const (
-	Ping      ClientMessageCode = "PING"
-	JoinQueue ClientMessageCode = "JOIN_QUEUE"
+	Ping           ClientMessageCode = "PING"
+	CaroJoinQueue  ClientMessageCode = "CARO:JOIN_QUEUE"
+	CaroLeaveQueue ClientMessageCode = "CARO:LEAVE_QUEUE"
 )
 
-func InitWsRoute(a *fiber.App, q *db.Queries, conf config.Config, aState *domain.AppState) {
+type ServerMessage struct {
+	Code    ServerMessageCode  `json:"code"`
+	Session domain.UserSession `json:"session"`
+}
+
+type ServerMessageCode string
+
+const (
+	Ok    ServerMessageCode = "OK"
+	Error ServerMessageCode = "ERROR"
+)
+
+func InitWsRoute(a *fiber.App, q *db.Queries, conf config.Config, app *domain.AppState) {
 	a.Get("/ws", wsAuthMiddleware(q, conf), websocket.New(func(wsc *websocket.Conn) {
 		u := wsc.Locals("currentUser").(db.User)
 
-		session := aState.GetOrCreateUserSession(u.ID)
-		if session.WsConn != nil {
-			session.WsConn.Close()
+		// save userSession
+		userSession := app.SafeGetOrCreateUserSession(u.ID)
+		if userSession.WsConn != nil {
+			userSession.WsConn.Close()
 		}
-		session.WsConn = wsc
-
+		userSession.WsConn = wsc
 		log.Printf("Websocket: User %s connect", u.ID)
 
 		for {
@@ -40,8 +53,8 @@ func InitWsRoute(a *fiber.App, q *db.Queries, conf config.Config, aState *domain
 			// disconnect
 			if err != nil {
 				wsc.Close()
-				if session.WsConn == wsc {
-					session.WsConn = nil
+				if userSession.WsConn == wsc {
+					userSession.WsConn = nil
 				}
 				log.Printf("Websocket: User %s disconnect", u.ID)
 				break
@@ -56,17 +69,38 @@ func InitWsRoute(a *fiber.App, q *db.Queries, conf config.Config, aState *domain
 
 			// condition handlers
 			if cMsg.Code == Ping {
-				handlePingMessage(session)
+				handlePingMessage(userSession)
+			}
+			if cMsg.Code == CaroJoinQueue {
+				handleCaroJoinQueueMessage(userSession, app)
+				log.Println(app.CaroQueue)
+			}
+			if cMsg.Code == CaroLeaveQueue {
+				handleCaroLeaveQueueMessage(userSession, app)
+				log.Println(app.CaroQueue)
 			}
 		}
 	}))
 }
 
-func handlePingMessage(session *domain.UserSession) {
-	encoded, err := json.Marshal(session)
+func handlePingMessage(s *domain.UserSession) {
+	s.WsConn.WriteJSON(ServerMessage{Code: Ok, Session: *s})
+}
+
+func handleCaroJoinQueueMessage(s *domain.UserSession, a *domain.AppState) {
+	err := domain.UserJoinCaroQueue(s, a)
 	if err != nil {
-		session.WsConn.WriteMessage(websocket.TextMessage, []byte("Some thing going wrong"))
+		s.WsConn.WriteJSON(ServerMessage{Code: Error, Session: *s})
 		return
 	}
-	session.WsConn.WriteMessage(websocket.TextMessage, encoded)
+	s.WsConn.WriteJSON(ServerMessage{Code: Ok, Session: *s})
+}
+
+func handleCaroLeaveQueueMessage(s *domain.UserSession, a *domain.AppState) {
+	err := domain.UserLeaveCaroQueue(s, a)
+	if err != nil {
+		s.WsConn.WriteJSON(ServerMessage{Code: Error, Session: *s})
+		return
+	}
+	s.WsConn.WriteJSON(ServerMessage{Code: Ok, Session: *s})
 }
