@@ -3,6 +3,7 @@ package main
 import (
 	"backend/src/config"
 	"backend/src/db"
+	"backend/src/domain"
 	"backend/src/router"
 	"context"
 	"log"
@@ -36,8 +37,10 @@ func main() {
 		return ctx.JSON("Welcome to Project EG")
 	})
 
+	appState := domain.NewAppState()
+
 	router.InitHttpRoutes(app, queries, conf)
-	router.InitWsRoute(app, queries, conf)
+	router.InitWsRoute(app, queries, conf, appState)
 
 	log.Fatal(app.Listen(":3000"))
 }

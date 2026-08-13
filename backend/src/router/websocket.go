@@ -5,14 +5,11 @@ import (
 	"backend/src/db"
 	"backend/src/domain"
 	"encoding/json"
+	"log"
 
 	"github.com/gofiber/contrib/v3/websocket"
 	"github.com/gofiber/fiber/v3"
-	"github.com/jackc/pgx/v5/pgtype"
 )
-
-// TODO: dùng mutex
-var userWsConnMap = map[pgtype.UUID]*websocket.Conn{}
 
 type ClientMessage struct {
 	Code ClientMessageCode `json:"code"`
@@ -26,20 +23,27 @@ const (
 	JoinQueue ClientMessageCode = "JOIN_QUEUE"
 )
 
-func InitWsRoute(a *fiber.App, q *db.Queries, conf config.Config) {
+func InitWsRoute(a *fiber.App, q *db.Queries, conf config.Config, aState *domain.AppState) {
 	a.Get("/ws", wsAuthMiddleware(q, conf), websocket.New(func(wsc *websocket.Conn) {
 		u := wsc.Locals("currentUser").(db.User)
-		str := "You are " + u.Name
-		wsc.WriteMessage(websocket.TextMessage, []byte(str))
 
-		userWsConnMap[u.ID] = wsc
+		session := aState.GetOrCreateUserSession(u.ID)
+		if session.WsConn != nil {
+			session.WsConn.Close()
+		}
+		session.WsConn = wsc
+
+		log.Printf("Websocket: User %s connect", u.ID)
 
 		for {
 			_, data, err := wsc.ReadMessage()
 			// disconnect
 			if err != nil {
-				delete(userWsConnMap, u.ID)
 				wsc.Close()
+				if session.WsConn == wsc {
+					session.WsConn = nil
+				}
+				log.Printf("Websocket: User %s disconnect", u.ID)
 				break
 			}
 
@@ -52,32 +56,17 @@ func InitWsRoute(a *fiber.App, q *db.Queries, conf config.Config) {
 
 			// condition handlers
 			if cMsg.Code == Ping {
-				// do Ping message handler
-				wsc.WriteMessage(websocket.TextMessage, []byte("U ping the server!"))
+				handlePingMessage(session)
 			}
 		}
 	}))
 }
 
-func wsAuthMiddleware(q *db.Queries, conf config.Config) fiber.Handler {
-	return func(c fiber.Ctx) error {
-		if websocket.IsWebSocketUpgrade(c) {
-			token := c.Query("token", "")
-
-			payload, err := domain.VerifyToken(token, conf.JwkSet)
-			if err != nil {
-				return c.SendStatus(401)
-			}
-
-			currentUser, err := domain.SyncUserFromTokenPayload(c, q, payload)
-			if err != nil {
-				return c.SendStatus(401)
-			}
-
-			c.Locals("currentUser", currentUser)
-
-			return c.Next()
-		}
-		return fiber.ErrUpgradeRequired
+func handlePingMessage(session *domain.UserSession) {
+	encoded, err := json.Marshal(session)
+	if err != nil {
+		session.WsConn.WriteMessage(websocket.TextMessage, []byte("Some thing going wrong"))
+		return
 	}
+	session.WsConn.WriteMessage(websocket.TextMessage, encoded)
 }
