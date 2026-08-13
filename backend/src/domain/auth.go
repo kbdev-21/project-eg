@@ -1,4 +1,4 @@
-package auth
+package domain
 
 import (
 	"backend/src/db"
@@ -30,7 +30,7 @@ func SyncUserFromTokenPayload(c context.Context, q *db.Queries, p TokenPayload) 
 	existingUser, err := q.GetUserById(c, idFromPayload)
 	// user chưa tồn tại
 	if err != nil {
-		avtCode, name := genRandomIdentity()
+		avtCode, name := genRandomIdentity(adjs, avtCodes)
 		err := q.InsertUser(c, db.InsertUserParams{
 			ID:      idFromPayload,
 			Role:    updateRole,
@@ -69,4 +69,36 @@ func SyncUserFromTokenPayload(c context.Context, q *db.Queries, p TokenPayload) 
 		return db.User{}, err
 	}
 	return syncedUser, nil
+}
+
+var adjs = []string{
+	"Lazy",
+	"Angry",
+	"Silly",
+	"Sleepy",
+	"Chubby",
+	"Happy",
+	"Fluffy",
+	"Fancy",
+	"Lucky",
+	"Grumpy",
+}
+
+var avtCodes = []db.UserAvtCode{
+	db.UserAvtCodeBUNNY,
+	db.UserAvtCodeKITTEN,
+	db.UserAvtCodeGRIZZLE,
+	db.UserAvtCodeHAMSTER,
+	db.UserAvtCodeMONKEY,
+}
+
+func getNameFromAdjAndAvtCode(adj string, avtCode db.UserAvtCode) string {
+	return adj + shared.CapitalizeString(string(avtCode))
+}
+
+func genRandomIdentity(adjs []string, avtCodes []db.UserAvtCode) (db.UserAvtCode, string) {
+	randAvtCode := avtCodes[shared.RandomInt(0, len(avtCodes)-1)]
+	randAdj := adjs[shared.RandomInt(0, len(adjs)-1)]
+	randName := getNameFromAdjAndAvtCode(randAdj, randAvtCode)
+	return randAvtCode, randName
 }

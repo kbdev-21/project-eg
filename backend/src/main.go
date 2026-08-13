@@ -3,8 +3,7 @@ package main
 import (
 	"backend/src/config"
 	"backend/src/db"
-	"backend/src/http"
-	"backend/src/ws"
+	"backend/src/router"
 	"context"
 	"log"
 
@@ -15,10 +14,7 @@ import (
 )
 
 func main() {
-	config.LoadEnv()
-	config.FetchJwkSet()
-
-	dbPool, err := pgxpool.New(context.Background(), config.Env.PostgresConnectionUrl)
+	dbPool, err := pgxpool.New(context.Background(), config.PostgresConnectionUrl)
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -35,10 +31,9 @@ func main() {
 		return c.JSON("Welcome to Project EG")
 	})
 
-	http.InitPublicRoutes(app, queries)
-	http.InitAuthRoutes(app, queries)
-	ws.InitWsRoutes(app, queries)
-	
+	router.InitPublicRoutes(app, queries)
+	router.InitAuthRoutes(app, queries)
+	router.InitWsRoute(app, queries)
 
 	log.Fatal(app.Listen(":3000"))
 }

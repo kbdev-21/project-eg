@@ -1,4 +1,4 @@
-package auth
+package domain
 
 import (
 	"backend/src/config"
@@ -15,19 +15,17 @@ import (
 type TokenPayload struct {
 	jwt.RegisteredClaims
 
-	Sub          string       `json:"sub"`
-	IsAnonymous  bool         `json:"is_anonymous"`
-	Email        string       `json:"email"`
-	Phone        string       `json:"phone"`
-	UserMetadata UserMetadata `json:"user_metadata"`
-}
-
-type UserMetadata struct {
-	AvatarUrl string `json:"avatar_url"`
-	Email     string `json:"email"`
-	FullName  string `json:"full_name"`
-	Name      string `json:"name"`
-	Picture   string `json:"picture"`
+	Sub          string `json:"sub"`
+	IsAnonymous  bool   `json:"is_anonymous"`
+	Email        string `json:"email"`
+	Phone        string `json:"phone"`
+	UserMetadata struct {
+		AvatarUrl string `json:"avatar_url"`
+		Email     string `json:"email"`
+		FullName  string `json:"full_name"`
+		Name      string `json:"name"`
+		Picture   string `json:"picture"`
+	} `json:"user_metadata"`
 }
 
 func VerifyToken(token string, jwkSet config.JwkSet) (TokenPayload, error) {
