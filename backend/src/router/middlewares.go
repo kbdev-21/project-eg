@@ -23,7 +23,7 @@ func authMiddleware(q *db.Queries, conf config.Config) fiber.Handler {
 			return ctx.SendStatus(401)
 		}
 
-		currentUser, err := domain.SyncUserFromTokenPayload(ctx, q, payload)
+		currentUser, err := domain.SyncUserFromTokenPayload(domain.CreateDbExecDeps(ctx, q), payload)
 		if err != nil {
 			return ctx.SendStatus(401)
 		}
@@ -35,23 +35,23 @@ func authMiddleware(q *db.Queries, conf config.Config) fiber.Handler {
 }
 
 func wsAuthMiddleware(q *db.Queries, conf config.Config) fiber.Handler {
-	return func(c fiber.Ctx) error {
-		if websocket.IsWebSocketUpgrade(c) {
-			token := c.Query("token", "")
+	return func(ctx fiber.Ctx) error {
+		if websocket.IsWebSocketUpgrade(ctx) {
+			token := ctx.Query("token", "")
 
 			payload, err := domain.VerifyToken(token, conf.JwkSet)
 			if err != nil {
-				return c.SendStatus(401)
+				return ctx.SendStatus(401)
 			}
 
-			currentUser, err := domain.SyncUserFromTokenPayload(c, q, payload)
+			currentUser, err := domain.SyncUserFromTokenPayload(domain.CreateDbExecDeps(ctx, q), payload)
 			if err != nil {
-				return c.SendStatus(401)
+				return ctx.SendStatus(401)
 			}
 
-			c.Locals("currentUser", currentUser)
+			ctx.Locals("currentUser", currentUser)
 
-			return c.Next()
+			return ctx.Next()
 		}
 		return fiber.ErrUpgradeRequired
 	}

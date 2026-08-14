@@ -9,27 +9,35 @@ import (
 
 type MmQueue []pgtype.UUID
 
-func UserJoinCaroQueue(session *UserSession, app *AppState) error {
-	if session.State != Idle {
+func (a *AppState) UserJoinCaroQueue(us *UserSession) error {
+	a.mu.Lock()
+	defer a.mu.Unlock()
+
+	if us.State != Idle {
 		return fmt.Errorf("invalid state")
 	}
 
-	app.CaroQueue = append(app.CaroQueue, session.UserId)
-	session.State = Queuing
-	session.CurrentGame = shared.Caro
+	a.caroQueue = append(a.caroQueue, us.UserId)
+	us.State = Queuing
+	us.CurrentGame = shared.Caro
 
+	//fmt.Println(a.caroQueue)
 	return nil
 }
 
-func UserLeaveCaroQueue(session *UserSession, app *AppState) error {
-	if !(session.State == Queuing && session.CurrentGame == shared.Caro) {
+func (a *AppState) UserLeaveCaroQueue(us *UserSession) error {
+	a.mu.Lock()
+	defer a.mu.Unlock()
+
+	if !(us.State == Queuing && us.CurrentGame == shared.Caro) {
 		return fmt.Errorf("invalid state")
 	}
 
-	app.CaroQueue = removedUserFromMmQueue(session.UserId, app.CaroQueue)
-	session.State = Idle
-	session.CurrentGame = shared.None
+	a.caroQueue = removedUserFromMmQueue(us.UserId, a.caroQueue)
+	us.State = Idle
+	us.CurrentGame = shared.None
 
+	//fmt.Println(a.caroQueue)
 	return nil
 }
 

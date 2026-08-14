@@ -38,15 +38,15 @@ const (
 
 func InitWsRoute(a *fiber.App, q *db.Queries, conf config.Config, app *domain.AppState) {
 	a.Get("/ws", wsAuthMiddleware(q, conf), websocket.New(func(wsc *websocket.Conn) {
-		u := wsc.Locals("currentUser").(db.User)
+		uId := wsc.Locals("currentUser").(db.User).ID
 
 		// save userSession
-		userSession := app.SafeGetOrCreateUserSession(u.ID)
+		userSession := app.GetOrCreateUserSession(uId)
 		if userSession.WsConn != nil {
 			userSession.WsConn.Close()
 		}
 		userSession.WsConn = wsc
-		log.Printf("Websocket: User %s connect", u.ID)
+		log.Printf("Websocket: User %s connect", uId)
 
 		for {
 			_, data, err := wsc.ReadMessage()
@@ -56,7 +56,7 @@ func InitWsRoute(a *fiber.App, q *db.Queries, conf config.Config, app *domain.Ap
 				if userSession.WsConn == wsc {
 					userSession.WsConn = nil
 				}
-				log.Printf("Websocket: User %s disconnect", u.ID)
+				log.Printf("Websocket: User %s disconnect", uId)
 				break
 			}
 
@@ -73,11 +73,9 @@ func InitWsRoute(a *fiber.App, q *db.Queries, conf config.Config, app *domain.Ap
 			}
 			if cMsg.Code == CaroJoinQueue {
 				handleCaroJoinQueueMessage(userSession, app)
-				log.Println(app.CaroQueue)
 			}
 			if cMsg.Code == CaroLeaveQueue {
 				handleCaroLeaveQueueMessage(userSession, app)
-				log.Println(app.CaroQueue)
 			}
 		}
 	}))
@@ -88,7 +86,7 @@ func handlePingMessage(s *domain.UserSession) {
 }
 
 func handleCaroJoinQueueMessage(s *domain.UserSession, a *domain.AppState) {
-	err := domain.UserJoinCaroQueue(s, a)
+	err := a.UserJoinCaroQueue(s)
 	if err != nil {
 		s.WsConn.WriteJSON(ServerMessage{Code: Error, Session: *s})
 		return
@@ -97,7 +95,7 @@ func handleCaroJoinQueueMessage(s *domain.UserSession, a *domain.AppState) {
 }
 
 func handleCaroLeaveQueueMessage(s *domain.UserSession, a *domain.AppState) {
-	err := domain.UserLeaveCaroQueue(s, a)
+	err := a.UserLeaveCaroQueue(s)
 	if err != nil {
 		s.WsConn.WriteJSON(ServerMessage{Code: Error, Session: *s})
 		return

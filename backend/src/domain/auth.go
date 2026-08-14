@@ -3,12 +3,11 @@ package domain
 import (
 	"backend/src/db"
 	"backend/src/shared"
-	"context"
 
 	"github.com/jackc/pgx/v5/pgtype"
 )
 
-func SyncUserFromTokenPayload(c context.Context, q *db.Queries, payload TokenPayload) (db.User, error) {
+func SyncUserFromTokenPayload(dbe *DbExecDeps, payload TokenPayload) (db.User, error) {
 	idFromPayload, err := shared.ParseStringToUuid(payload.Sub)
 	if err != nil {
 		return db.User{}, err
@@ -27,11 +26,11 @@ func SyncUserFromTokenPayload(c context.Context, q *db.Queries, payload TokenPay
 		}
 	}
 
-	existingUser, err := q.GetUserById(c, idFromPayload)
+	existingUser, err := dbe.q.GetUserById(dbe.c, idFromPayload)
 	// user chưa tồn tại
 	if err != nil {
 		avtCode, name := genRandomIdentity(adjs, avtCodes)
-		err := q.InsertUser(c, db.InsertUserParams{
+		err := dbe.q.InsertUser(dbe.c, db.InsertUserParams{
 			ID:      idFromPayload,
 			Role:    updateRole,
 			Name:    name,
@@ -42,7 +41,7 @@ func SyncUserFromTokenPayload(c context.Context, q *db.Queries, payload TokenPay
 			return db.User{}, err
 		}
 
-		createdUser, err := q.GetUserById(c, idFromPayload)
+		createdUser, err := dbe.q.GetUserById(dbe.c, idFromPayload)
 		if err != nil {
 			return db.User{}, err
 		}
@@ -53,7 +52,7 @@ func SyncUserFromTokenPayload(c context.Context, q *db.Queries, payload TokenPay
 		return existingUser, nil
 	}
 
-	err = q.UpdateUser(c, db.UpdateUserParams{
+	err = dbe.q.UpdateUser(dbe.c, db.UpdateUserParams{
 		ID:      existingUser.ID,
 		Role:    updateRole,
 		Name:    existingUser.Name,
@@ -64,7 +63,7 @@ func SyncUserFromTokenPayload(c context.Context, q *db.Queries, payload TokenPay
 		return db.User{}, err
 	}
 
-	syncedUser, err := q.GetUserById(c, idFromPayload)
+	syncedUser, err := dbe.q.GetUserById(dbe.c, idFromPayload)
 	if err != nil {
 		return db.User{}, err
 	}

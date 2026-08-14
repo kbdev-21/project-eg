@@ -38,7 +38,7 @@ func main() {
 	})
 
 	appState := domain.NewAppState()
-
+	
 	router.InitHttpRoutes(app, queries, conf)
 	router.InitWsRoute(app, queries, conf, appState)
 

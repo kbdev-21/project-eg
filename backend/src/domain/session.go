@@ -23,3 +23,4 @@ const (
 	Playing  UserSessionState = "PLAYING"
 	Watching UserSessionState = "WATCHING"
 )
+

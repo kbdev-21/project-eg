@@ -9,6 +9,8 @@ import (
 )
 
 func InitHttpRoutes(a *fiber.App, q *db.Queries, conf config.Config) {
+	
+
 	a.Get("/api/me", authMiddleware(q, conf), getMeHandler())
 	a.Get("/api/users/:id", getUserByIdHandler(q))
 }
