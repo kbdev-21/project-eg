@@ -62,3 +62,12 @@ func (a *AppState) GetOrCreateUserSession(userId pgtype.UUID) *UserSession {
 
 	return session
 }
+
+func (a *AppState) GetCaroMatch(matchId uuid.UUID) (*CaroMatch, bool) {
+	a.mu.Lock()
+	defer a.mu.Unlock()
+
+	m, existed := a.caroMatchesMap[matchId]
+
+	return m, existed
+}

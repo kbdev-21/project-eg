@@ -1,7 +1,6 @@
 package domain
 
 import (
-	"backend/src/shared"
 	"fmt"
 
 	"github.com/google/uuid"
@@ -27,24 +26,21 @@ func (a *AppState) UserJoinCaroQueue(us *UserSession) (*CaroMatch, error) {
 
 		matchId := uuid.New()
 		a.caroMatchesMap[matchId] = NewCaroMatch(true, xPlayerId, oPlayerId)
-		
+
 		xSession := a.userSessionsMap[xPlayerId]
 		oSession := a.userSessionsMap[oPlayerId]
 
-		xSession.State = Playing
-		xSession.CurrentGame = shared.Caro
+		xSession.State = PlayingCaro
 		xSession.CurrentMatchId = matchId
 
-		oSession.State = Playing
-		oSession.CurrentGame = shared.Caro
+		oSession.State = PlayingCaro
 		oSession.CurrentMatchId = matchId
 
 		return a.caroMatchesMap[matchId], nil
 	}
 
 	a.caroQueue = append(a.caroQueue, us.UserId)
-	us.State = Queuing
-	us.CurrentGame = shared.Caro
+	us.State = QueuingCaro
 
 	return nil, nil
 }
@@ -53,13 +49,12 @@ func (a *AppState) UserLeaveCaroQueue(us *UserSession) error {
 	a.mu.Lock()
 	defer a.mu.Unlock()
 
-	if !(us.State == Queuing && us.CurrentGame == shared.Caro) {
+	if us.State != QueuingCaro {
 		return fmt.Errorf("invalid state")
 	}
 
 	a.caroQueue = removedUserFromMmQueue(us.UserId, a.caroQueue)
 	us.State = Idle
-	us.CurrentGame = shared.None
 
 	//fmt.Println(a.caroQueue)
 	return nil
