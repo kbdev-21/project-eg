@@ -22,18 +22,22 @@ const (
 	Ping           ClientMessageCode = "PING"
 	CaroJoinQueue  ClientMessageCode = "CARO:JOIN_QUEUE"
 	CaroLeaveQueue ClientMessageCode = "CARO:LEAVE_QUEUE"
+	CaroPlayMove   ClientMessageCode = "CARO:PLAY_MOVE"
+	CaroAbortMatch ClientMessageCode = "CARO:ABORT_MATCH"
 )
 
 type ServerMessage struct {
 	Code    ServerMessageCode  `json:"code"`
 	Session domain.UserSession `json:"session"`
+	Data    any                `json:"data"`
 }
 
 type ServerMessageCode string
 
 const (
-	Ok    ServerMessageCode = "OK"
-	Error ServerMessageCode = "ERROR"
+	Ok         ServerMessageCode = "OK"
+	Error      ServerMessageCode = "ERROR"
+	MatchFound ServerMessageCode = "MATCH_FOUND"
 )
 
 func InitWsRoute(a *fiber.App, q *db.Queries, conf config.Config, app *domain.AppState) {
@@ -86,12 +90,33 @@ func handlePingMessage(s *domain.UserSession) {
 }
 
 func handleCaroJoinQueueMessage(s *domain.UserSession, a *domain.AppState) {
-	err := a.UserJoinCaroQueue(s)
+	match, err := a.UserJoinCaroQueue(s)
 	if err != nil {
 		s.WsConn.WriteJSON(ServerMessage{Code: Error, Session: *s})
 		return
 	}
-	s.WsConn.WriteJSON(ServerMessage{Code: Ok, Session: *s})
+	if match == nil {
+		s.WsConn.WriteJSON(ServerMessage{Code: Ok, Session: *s})
+		return
+	}
+
+	xSess, existed := a.GetUserSession(match.XPlayerId)
+	if existed {
+		xSess.WsConn.WriteJSON(ServerMessage{
+			Code:    MatchFound,
+			Session: *xSess,
+			Data:    *match,
+		})
+	}
+
+	oSess, existed := a.GetUserSession(match.OPlayerId)
+	if existed {
+		oSess.WsConn.WriteJSON(ServerMessage{
+			Code:    MatchFound,
+			Session: *oSess,
+			Data:    *match,
+		})
+	}
 }
 
 func handleCaroLeaveQueueMessage(s *domain.UserSession, a *domain.AppState) {

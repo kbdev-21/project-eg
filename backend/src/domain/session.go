@@ -4,6 +4,7 @@ import (
 	"backend/src/shared"
 
 	"github.com/gofiber/contrib/v3/websocket"
+	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5/pgtype"
 )
 
@@ -12,7 +13,7 @@ type UserSession struct {
 	WsConn         *websocket.Conn  `json:"-"`
 	State          UserSessionState `json:"state"`
 	CurrentGame    shared.GameCode  `json:"currentGame"`    // None = not playing/watching
-	CurrentMatchId string           `json:"currentMatchId"` // "" = not playing/watching
+	CurrentMatchId uuid.UUID        `json:"currentMatchId"` // Nil = not playing/watching
 }
 
 type UserSessionState string
@@ -23,4 +24,3 @@ const (
 	Playing  UserSessionState = "PLAYING"
 	Watching UserSessionState = "WATCHING"
 )
-

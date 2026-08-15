@@ -1,25 +1,26 @@
 package domain
 
 import (
-	"backend/src/db"
 	"fmt"
 	"time"
+
+	"github.com/jackc/pgx/v5/pgtype"
 )
 
 const CARO_BOARD_SIZE = 15
 
 type CaroMatch struct {
-	IsRated bool
+	IsRated bool `json:"isRated"`
 
-	PlayerX db.User
-	PlayerO db.User
+	XPlayerId pgtype.UUID `json:"xPlayerId"`
+	OPlayerId pgtype.UUID `json:"oPlayerId"`
 
-	Board  CaroBoard
-	Moves  []CaroMove
-	TurnOf CaroPiece
+	Board  CaroBoard  `json:"board"`
+	Moves  []CaroMove `json:"moves"`
+	TurnOf CaroPiece  `json:"turnOf"`
 
-	Winner  CaroPiece
-	IsEnded bool
+	Winner  CaroPiece `json:"winner"`
+	IsEnded bool      `json:"isEnded"`
 }
 
 type CaroBoard [CARO_BOARD_SIZE][CARO_BOARD_SIZE]CaroPiece
@@ -33,22 +34,22 @@ const (
 )
 
 type CaroMove struct {
-	Piece    CaroPiece
-	X        int
-	Y        int
-	PlayedAt time.Time
+	Piece    CaroPiece `json:"board"`
+	X        int       `json:"x"`
+	Y        int       `json:"y"`
+	PlayedAt time.Time `json:"playedAt"`
 }
 
-func NewCaroMatch(isRated bool, playerX db.User, playerO db.User) *CaroMatch {
+func NewCaroMatch(isRated bool, xPlayerId pgtype.UUID, oPlayerId pgtype.UUID) *CaroMatch {
 	return &CaroMatch{
-		IsRated: isRated,
-		PlayerX: playerX,
-		PlayerO: playerO,
-		Board:   CaroBoard{},
-		Moves:   []CaroMove{},
-		TurnOf:  X,
-		Winner:  None,
-		IsEnded: false,
+		IsRated:   isRated,
+		XPlayerId: xPlayerId,
+		OPlayerId: oPlayerId,
+		Board:     CaroBoard{},
+		Moves:     []CaroMove{},
+		TurnOf:    X,
+		Winner:    None,
+		IsEnded:   false,
 	}
 }
 

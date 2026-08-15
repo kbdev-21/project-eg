@@ -5,26 +5,29 @@ import (
 	"context"
 	"sync"
 
+	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5/pgtype"
 )
 
 type AppState struct {
-	mu           sync.Mutex
-	userSessions map[pgtype.UUID]*UserSession
-	caroQueue    MmQueue
+	mu              sync.Mutex
+	userSessionsMap map[pgtype.UUID]*UserSession
+	caroQueue       MmQueue
+	caroMatchesMap  map[uuid.UUID]*CaroMatch
+}
+
+func NewAppState() *AppState {
+	return &AppState{
+		mu:              sync.Mutex{},
+		userSessionsMap: map[pgtype.UUID]*UserSession{},
+		caroQueue:       MmQueue{},
+		caroMatchesMap:  map[uuid.UUID]*CaroMatch{},
+	}
 }
 
 type DbExecDeps struct {
 	c context.Context
 	q *db.Queries
-}
-
-func NewAppState() *AppState {
-	return &AppState{
-		mu:           sync.Mutex{},
-		userSessions: map[pgtype.UUID]*UserSession{},
-		caroQueue:    MmQueue{},
-	}
 }
 
 func CreateDbExecDeps(c context.Context, q *db.Queries) *DbExecDeps {
@@ -38,7 +41,7 @@ func (a *AppState) GetUserSession(userId pgtype.UUID) (*UserSession, bool) {
 	a.mu.Lock()
 	defer a.mu.Unlock()
 
-	session, existed := a.userSessions[userId]
+	session, existed := a.userSessionsMap[userId]
 
 	return session, existed
 }
@@ -47,13 +50,14 @@ func (a *AppState) GetOrCreateUserSession(userId pgtype.UUID) *UserSession {
 	a.mu.Lock()
 	defer a.mu.Unlock()
 
-	session, ok := a.userSessions[userId]
+	session, ok := a.userSessionsMap[userId]
 	if !ok {
 		session = &UserSession{
 			UserId: userId,
 			State:  Idle,
+			CurrentMatchId: uuid.Nil,
 		}
-		a.userSessions[userId] = session
+		a.userSessionsMap[userId] = session
 	}
 
 	return session
