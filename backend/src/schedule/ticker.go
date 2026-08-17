@@ -17,18 +17,18 @@ func EverySecond(a *domain.AppState, q *db.Queries, p *pgxpool.Pool) {
 
 	for range ticker.C {
 		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-		checkAllCaroMatchesTimeout(a, domain.CreateDbExecDeps(ctx, q, p))
+		checkAllCaroMatchesTimeout(a, domain.CreateDbExec(ctx, q, p))
 		cancel()
 	}
 }
 
-func checkAllCaroMatchesTimeout(a *domain.AppState, dbe *domain.DbExecDeps) {
+func checkAllCaroMatchesTimeout(a *domain.AppState, dbe *domain.DbExec) {
 	fmt.Println("Check time out")
 	matches := a.GetCaroMatches()
 	for _, m := range matches {
 		lastAction := m.StartedAt
 		if len(m.Moves) > 0 {
-			lastAction = m.Moves[len(m.Moves)-1].PlayedAt 
+			lastAction = m.Moves[len(m.Moves)-1].PlayedAt
 		}
 		if time.Since(lastAction) > domain.CARO_MAX_MOVE_TIME {
 			m.OutOfTime()

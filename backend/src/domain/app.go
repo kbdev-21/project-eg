@@ -17,7 +17,13 @@ type AppState struct {
 	caroMatchesMap  map[uuid.UUID]*CaroMatch
 }
 
-func NewAppState() *AppState {
+type DbExec struct {
+	c context.Context
+	q *db.Queries
+	p *pgxpool.Pool
+}
+
+func InitAppState() *AppState {
 	return &AppState{
 		mu:              sync.Mutex{},
 		userSessionsMap: map[pgtype.UUID]*UserSession{},
@@ -26,14 +32,8 @@ func NewAppState() *AppState {
 	}
 }
 
-type DbExecDeps struct {
-	c context.Context
-	q *db.Queries
-	p *pgxpool.Pool
-}
-
-func CreateDbExecDeps(c context.Context, q *db.Queries, p *pgxpool.Pool) *DbExecDeps {
-	return &DbExecDeps{
+func CreateDbExec(c context.Context, q *db.Queries, p *pgxpool.Pool) *DbExec {
+	return &DbExec{
 		c: c,
 		q: q,
 		p: p,

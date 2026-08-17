@@ -78,7 +78,7 @@ func InitWsRoute(fib *fiber.App, q *db.Queries, conf config.Config, app *domain.
 			}
 
 			ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-			dbe := domain.CreateDbExecDeps(ctx, q, pool)
+			dbe := domain.CreateDbExec(ctx, q, pool)
 
 			// condition handlers
 			if cMsg.Code == Ping {
@@ -123,7 +123,7 @@ func handlePingMessage(s *domain.UserSession, a *domain.AppState) {
 	s.WsConn.WriteJSON(BuildServerMessage(Ok, *s, a))
 }
 
-func handleCaroJoinQueueMessage(s *domain.UserSession, a *domain.AppState, dbe *domain.DbExecDeps) {
+func handleCaroJoinQueueMessage(s *domain.UserSession, a *domain.AppState, dbe *domain.DbExec) {
 	match, err := a.UserJoinCaroQueue(dbe, s)
 	if err != nil {
 		s.WsConn.WriteJSON(BuildServerMessage(Error, *s, a))
@@ -163,7 +163,7 @@ func handleCaroPlayMoveMessage(
 	s *domain.UserSession,
 	a *domain.AppState,
 	move CaroPlayMoveMessageData,
-	dbe *domain.DbExecDeps,
+	dbe *domain.DbExec,
 ) {
 	if s.State != domain.PlayingCaro {
 		s.WsConn.WriteJSON(BuildServerMessage(Error, *s, a))

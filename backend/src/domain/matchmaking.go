@@ -10,7 +10,7 @@ import (
 type MmQueue []User
 
 // CaroMatch == nil && error == nil: join queue, not found match yet
-func (a *AppState) UserJoinCaroQueue(dbe *DbExecDeps, uSes *UserSession) (*CaroMatch, error) {
+func (a *AppState) UserJoinCaroQueue(dbe *DbExec, uSes *UserSession) (*CaroMatch, error) {
 	newU, err := GetUserById(dbe, uSes.UserId)
 	if err != nil {
 		return nil, err

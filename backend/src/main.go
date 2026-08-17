@@ -38,7 +38,7 @@ func main() {
 		return ctx.JSON("Welcome to Project EG")
 	})
 
-	appState := domain.NewAppState()
+	appState := domain.InitAppState()
 
 	router.InitHttpRoutes(fib, queries, conf, dbPool)
 	router.InitWsRoute(fib, queries, conf, appState, dbPool)

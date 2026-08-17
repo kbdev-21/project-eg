@@ -34,18 +34,18 @@ const (
 
 func ToUser(u db.User) User {
 	return User{
-		User: u,
-		Role: UserRole(u.Role),
+		User:    u,
+		Role:    UserRole(u.Role),
 		AvtCode: UserAvtCode(u.AvtCode),
 	}
 }
 
-func GetUserById(dbe *DbExecDeps, id pgtype.UUID) (User, error) {
+func GetUserById(dbe *DbExec, id pgtype.UUID) (User, error) {
 	dbU, err := dbe.q.GetUserById(dbe.c, id)
 	return ToUser(dbU), err
 }
 
-func SyncUserFromTokenPayload(dbe *DbExecDeps, payload TokenPayload) (User, error) {
+func SyncUserFromTokenPayload(dbe *DbExec, payload TokenPayload) (User, error) {
 	idFromPayload, err := shared.ParseStringToUuid(payload.Sub)
 	if err != nil {
 		return User{}, err

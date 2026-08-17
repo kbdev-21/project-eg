@@ -24,7 +24,7 @@ func authMiddleware(q *db.Queries, conf config.Config, p *pgxpool.Pool) fiber.Ha
 			return ctx.SendStatus(401)
 		}
 
-		currentUser, err := domain.SyncUserFromTokenPayload(domain.CreateDbExecDeps(ctx, q, p), payload)
+		currentUser, err := domain.SyncUserFromTokenPayload(domain.CreateDbExec(ctx, q, p), payload)
 		if err != nil {
 			return ctx.SendStatus(401)
 		}
@@ -45,7 +45,7 @@ func wsAuthMiddleware(q *db.Queries, conf config.Config, p *pgxpool.Pool) fiber.
 				return ctx.SendStatus(401)
 			}
 
-			currentUser, err := domain.SyncUserFromTokenPayload(domain.CreateDbExecDeps(ctx, q, p), payload)
+			currentUser, err := domain.SyncUserFromTokenPayload(domain.CreateDbExec(ctx, q, p), payload)
 			if err != nil {
 				return ctx.SendStatus(401)
 			}

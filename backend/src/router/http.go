@@ -28,7 +28,7 @@ func getUserByIdHandler(q *db.Queries, p *pgxpool.Pool) fiber.Handler {
 		if err != nil {
 			return ctx.SendStatus(400)
 		}
-		user, err := domain.GetUserById(domain.CreateDbExecDeps(ctx, q, p), id)
+		user, err := domain.GetUserById(domain.CreateDbExec(ctx, q, p), id)
 		if err != nil {
 			return ctx.SendStatus(404)
 		}

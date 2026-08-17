@@ -29,7 +29,7 @@ func ToCaroMatchResult(m db.CaroMatch) CaroMatchResult {
 	}
 }
 
-func GetCaroMatchResultById(dbe *DbExecDeps, id pgtype.UUID) (CaroMatchResult, error) {
+func GetCaroMatchResultById(dbe *DbExec, id pgtype.UUID) (CaroMatchResult, error) {
 	m, err := dbe.q.GetCaroMatchById(dbe.c, id)
 	if err != nil {
 		return CaroMatchResult{}, err
@@ -37,13 +37,13 @@ func GetCaroMatchResultById(dbe *DbExecDeps, id pgtype.UUID) (CaroMatchResult, e
 	return ToCaroMatchResult(m), nil
 }
 
-func (a *AppState) ProcessCaroMatchEnded(dbe *DbExecDeps, m CaroMatch) (CaroMatchResult, error) {
+func (a *AppState) ProcessCaroMatchEnded(dbe *DbExec, m CaroMatch) (CaroMatchResult, error) {
 	result := 0
 	winnerId := pgtype.UUID{}
 	if m.Winner == X {
 		result = 1
 		winnerId = pgtype.UUID{Bytes: m.XPlayerId.Bytes, Valid: true}
-	} 
+	}
 	if m.Winner == O {
 		result = -1
 		winnerId = pgtype.UUID{Bytes: m.OPlayerId.Bytes, Valid: true}
