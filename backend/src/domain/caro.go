@@ -9,6 +9,7 @@ import (
 )
 
 const CARO_BOARD_SIZE = 15
+const CARO_MAX_MOVE_TIME = 20 * time.Second
 
 type CaroMatch struct {
 	Id uuid.UUID `json:"id"`
@@ -24,8 +25,9 @@ type CaroMatch struct {
 	Moves  []CaroMove `json:"moves"`
 	TurnOf CaroPiece  `json:"turnOf"`
 
-	Winner  CaroPiece `json:"winner"`
-	IsEnded bool      `json:"isEnded"`
+	Winner    CaroPiece `json:"winner"`
+	IsEnded   bool      `json:"isEnded"`
+	StartedAt time.Time `json:"startedAt"`
 }
 
 type CaroBoard [CARO_BOARD_SIZE][CARO_BOARD_SIZE]CaroPiece
@@ -47,17 +49,18 @@ type CaroMove struct {
 
 func NewCaroMatch(id uuid.UUID, isRated bool, xId pgtype.UUID, xRating int, oId pgtype.UUID, oRating int) *CaroMatch {
 	return &CaroMatch{
-		Id:        id,
-		IsRated:   isRated,
-		XPlayerId: xId,
+		Id:            id,
+		IsRated:       isRated,
+		XPlayerId:     xId,
 		XPlayerRating: xRating,
-		OPlayerId: oId,
+		OPlayerId:     oId,
 		OPlayerRating: oRating,
-		Board:     CaroBoard{},
-		Moves:     []CaroMove{},
-		TurnOf:    X,
-		Winner:    None,
-		IsEnded:   false,
+		Board:         CaroBoard{},
+		Moves:         []CaroMove{},
+		TurnOf:        X,
+		Winner:        None,
+		IsEnded:       false,
+		StartedAt:     time.Now(),
 	}
 }
 
@@ -111,6 +114,16 @@ func (match *CaroMatch) Move(player CaroPiece, x int, y int) error {
 	}
 
 	return nil
+}
+
+func (match *CaroMatch) OutOfTime() {
+	ootPlayer := match.TurnOf
+	if ootPlayer == X {
+		match.Winner = O
+	} else {
+		match.Winner = X
+	}
+	match.IsEnded = true
 }
 
 var caroDirections = [4][2]int{

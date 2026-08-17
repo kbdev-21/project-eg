@@ -38,15 +38,16 @@ type ServerMessage struct {
 type ServerMessageCode string
 
 const (
-	Ok                ServerMessageCode = "OK"
-	Error             ServerMessageCode = "ERROR"
-	CaroMatchFound    ServerMessageCode = "CARO:MATCH_FOUND"
-	CaroNewBoardState ServerMessageCode = "CARO:NEW_BOARD_STATE"
-	CaroMatchEnded    ServerMessageCode = "CARO:MATCH_ENDED"
+	Ok                      ServerMessageCode = "OK"
+	Error                   ServerMessageCode = "ERROR"
+	CaroMatchFound          ServerMessageCode = "CARO:MATCH_FOUND"
+	CaroNewBoardState       ServerMessageCode = "CARO:NEW_BOARD_STATE"
+	CaroMatchEnded          ServerMessageCode = "CARO:MATCH_ENDED"
+	CaroMatchEndedOutOfTime ServerMessageCode = "CARO:MATCH_ENDED_OUT_OF_TIME"
 )
 
-func InitWsRoute(a *fiber.App, q *db.Queries, conf config.Config, app *domain.AppState, pool *pgxpool.Pool) {
-	a.Get("/ws", wsAuthMiddleware(q, conf, pool), websocket.New(func(wsc *websocket.Conn) {
+func InitWsRoute(fib *fiber.App, q *db.Queries, conf config.Config, app *domain.AppState, pool *pgxpool.Pool) {
+	fib.Get("/ws", wsAuthMiddleware(q, conf, pool), websocket.New(func(wsc *websocket.Conn) {
 		uId := wsc.Locals("currentUser").(domain.User).ID
 
 		// save userSession
@@ -93,7 +94,7 @@ func InitWsRoute(a *fiber.App, q *db.Queries, conf config.Config, app *domain.Ap
 				var msgMove CaroPlayMoveMessageData
 				err := json.Unmarshal(cMsg.Data, &msgMove)
 				if err != nil {
-					userSession.WsConn.WriteJSON(buildServerMessage(Error, *userSession, app))
+					userSession.WsConn.WriteJSON(BuildServerMessage(Error, *userSession, app))
 				} else {
 					handleCaroPlayMoveMessage(userSession, app, msgMove, dbe)
 				}
@@ -104,7 +105,7 @@ func InitWsRoute(a *fiber.App, q *db.Queries, conf config.Config, app *domain.Ap
 	}))
 }
 
-func buildServerMessage(code ServerMessageCode, s domain.UserSession, a *domain.AppState) ServerMessage {
+func BuildServerMessage(code ServerMessageCode, s domain.UserSession, a *domain.AppState) ServerMessage {
 	sMsg := ServerMessage{Code: code, State: s.State}
 	if sMsg.State == domain.PlayingCaro {
 		match, existed := a.GetCaroMatch(s.CurrentMatchId)
@@ -119,38 +120,38 @@ func buildServerMessage(code ServerMessageCode, s domain.UserSession, a *domain.
 }
 
 func handlePingMessage(s *domain.UserSession, a *domain.AppState) {
-	s.WsConn.WriteJSON(buildServerMessage(Ok, *s, a))
+	s.WsConn.WriteJSON(BuildServerMessage(Ok, *s, a))
 }
 
 func handleCaroJoinQueueMessage(s *domain.UserSession, a *domain.AppState, dbe *domain.DbExecDeps) {
 	match, err := a.UserJoinCaroQueue(dbe, s)
 	if err != nil {
-		s.WsConn.WriteJSON(buildServerMessage(Error, *s, a))
+		s.WsConn.WriteJSON(BuildServerMessage(Error, *s, a))
 		return
 	}
 	if match == nil {
-		s.WsConn.WriteJSON(buildServerMessage(Ok, *s, a))
+		s.WsConn.WriteJSON(BuildServerMessage(Ok, *s, a))
 		return
 	}
 
 	xSess, existed := a.GetUserSession(match.XPlayerId)
 	if existed {
-		xSess.WsConn.WriteJSON(buildServerMessage(CaroMatchFound, *xSess, a))
+		xSess.WsConn.WriteJSON(BuildServerMessage(CaroMatchFound, *xSess, a))
 	}
 
 	oSess, existed := a.GetUserSession(match.OPlayerId)
 	if existed {
-		oSess.WsConn.WriteJSON(buildServerMessage(CaroMatchFound, *oSess, a))
+		oSess.WsConn.WriteJSON(BuildServerMessage(CaroMatchFound, *oSess, a))
 	}
 }
 
 func handleCaroLeaveQueueMessage(s *domain.UserSession, a *domain.AppState) {
 	err := a.UserLeaveCaroQueue(s)
 	if err != nil {
-		s.WsConn.WriteJSON(buildServerMessage(CaroMatchFound, *s, a))
+		s.WsConn.WriteJSON(BuildServerMessage(CaroMatchFound, *s, a))
 		return
 	}
-	s.WsConn.WriteJSON(buildServerMessage(CaroMatchFound, *s, a))
+	s.WsConn.WriteJSON(BuildServerMessage(CaroMatchFound, *s, a))
 }
 
 type CaroPlayMoveMessageData struct {
@@ -165,13 +166,13 @@ func handleCaroPlayMoveMessage(
 	dbe *domain.DbExecDeps,
 ) {
 	if s.State != domain.PlayingCaro {
-		s.WsConn.WriteJSON(buildServerMessage(Error, *s, a))
+		s.WsConn.WriteJSON(BuildServerMessage(Error, *s, a))
 		return
 	}
 
 	match, existed := a.GetCaroMatch(s.CurrentMatchId)
 	if !existed {
-		s.WsConn.WriteJSON(buildServerMessage(Error, *s, a))
+		s.WsConn.WriteJSON(BuildServerMessage(Error, *s, a))
 		return
 	}
 
@@ -182,7 +183,7 @@ func handleCaroPlayMoveMessage(
 
 	err := match.Move(userPiece, move.X, move.Y)
 	if err != nil {
-		s.WsConn.WriteJSON(buildServerMessage(Error, *s, a))
+		s.WsConn.WriteJSON(BuildServerMessage(Error, *s, a))
 		return
 	}
 
@@ -194,21 +195,21 @@ func handleCaroPlayMoveMessage(
 	}
 
 	if !match.IsEnded {
-		xSess.WsConn.WriteJSON(buildServerMessage(CaroNewBoardState, *xSess, a))
-		oSess.WsConn.WriteJSON(buildServerMessage(CaroNewBoardState, *oSess, a))
+		xSess.WsConn.WriteJSON(BuildServerMessage(CaroNewBoardState, *xSess, a))
+		oSess.WsConn.WriteJSON(BuildServerMessage(CaroNewBoardState, *oSess, a))
 		return
 	}
 
 	// match ended
 	matchResult, err := a.ProcessCaroMatchEnded(dbe, *match)
 
-	xMsg := buildServerMessage(CaroMatchEnded, *xSess, a)
+	xMsg := BuildServerMessage(CaroMatchEnded, *xSess, a)
 	xMsg.Data = map[string]any{
 		"endedMatch": matchResult,
 	}
 	xSess.WsConn.WriteJSON(xMsg)
 
-	oMsg := buildServerMessage(CaroMatchEnded, *oSess, a)
+	oMsg := BuildServerMessage(CaroMatchEnded, *oSess, a)
 	oMsg.Data = map[string]any{
 		"endedMatch": matchResult,
 	}

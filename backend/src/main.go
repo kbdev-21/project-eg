@@ -5,6 +5,7 @@ import (
 	"backend/src/db"
 	"backend/src/domain"
 	"backend/src/router"
+	"backend/src/schedule"
 	"context"
 	"log"
 
@@ -28,19 +29,21 @@ func main() {
 
 	queries := db.New(dbPool)
 
-	app := fiber.New()
+	fib := fiber.New()
 
-	app.Use(cors.New())
-	app.Use(logger.New())
+	fib.Use(cors.New())
+	fib.Use(logger.New())
 
-	app.Get("/", func(ctx fiber.Ctx) error {
+	fib.Get("/", func(ctx fiber.Ctx) error {
 		return ctx.JSON("Welcome to Project EG")
 	})
 
 	appState := domain.NewAppState()
-	
-	router.InitHttpRoutes(app, queries, conf, dbPool)
-	router.InitWsRoute(app, queries, conf, appState, dbPool)
 
-	log.Fatal(app.Listen(":3000"))
+	router.InitHttpRoutes(fib, queries, conf, dbPool)
+	router.InitWsRoute(fib, queries, conf, appState, dbPool)
+
+	go schedule.EverySecond(appState, queries, dbPool)
+
+	log.Fatal(fib.Listen(":3000"))
 }

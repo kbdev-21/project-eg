@@ -74,3 +74,14 @@ func (a *AppState) GetCaroMatch(matchId uuid.UUID) (*CaroMatch, bool) {
 
 	return m, existed
 }
+
+func (a *AppState) GetCaroMatches() []*CaroMatch {
+	a.mu.Lock()
+	defer a.mu.Unlock()
+
+	matches := []*CaroMatch{}
+	for _, m := range a.caroMatchesMap {
+		matches = append(matches, m)
+	}
+	return matches
+}

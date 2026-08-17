@@ -10,9 +10,9 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
-func InitHttpRoutes(a *fiber.App, q *db.Queries, conf config.Config, pool *pgxpool.Pool) {
-	a.Get("/api/me", authMiddleware(q, conf, pool), getMeHandler())
-	a.Get("/api/users/:id", getUserByIdHandler(q, pool))
+func InitHttpRoutes(fib *fiber.App, q *db.Queries, conf config.Config, pool *pgxpool.Pool) {
+	fib.Get("/api/me", authMiddleware(q, conf, pool), getMeHandler())
+	fib.Get("/api/users/:id", getUserByIdHandler(q, pool))
 }
 
 func getMeHandler() fiber.Handler {
