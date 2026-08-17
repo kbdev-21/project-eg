@@ -4,16 +4,21 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5/pgtype"
 )
 
 const CARO_BOARD_SIZE = 15
 
 type CaroMatch struct {
+	Id uuid.UUID `json:"id"`
+
 	IsRated bool `json:"isRated"`
 
-	XPlayerId pgtype.UUID `json:"xPlayerId"`
-	OPlayerId pgtype.UUID `json:"oPlayerId"`
+	XPlayerId     pgtype.UUID `json:"xPlayerId"`
+	XPlayerRating int         `json:"xPlayerRating"`
+	OPlayerId     pgtype.UUID `json:"oPlayerId"`
+	OPlayerRating int         `json:"oPlayerRating"`
 
 	Board  CaroBoard  `json:"board"`
 	Moves  []CaroMove `json:"moves"`
@@ -34,17 +39,20 @@ const (
 )
 
 type CaroMove struct {
-	Piece    CaroPiece `json:"board"`
+	Piece    CaroPiece `json:"piece"`
 	X        int       `json:"x"`
 	Y        int       `json:"y"`
 	PlayedAt time.Time `json:"playedAt"`
 }
 
-func NewCaroMatch(isRated bool, xPlayerId pgtype.UUID, oPlayerId pgtype.UUID) *CaroMatch {
+func NewCaroMatch(id uuid.UUID, isRated bool, xId pgtype.UUID, xRating int, oId pgtype.UUID, oRating int) *CaroMatch {
 	return &CaroMatch{
+		Id:        id,
 		IsRated:   isRated,
-		XPlayerId: xPlayerId,
-		OPlayerId: oPlayerId,
+		XPlayerId: xId,
+		XPlayerRating: xRating,
+		OPlayerId: oId,
+		OPlayerRating: oRating,
 		Board:     CaroBoard{},
 		Moves:     []CaroMove{},
 		TurnOf:    X,

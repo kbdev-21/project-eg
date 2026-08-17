@@ -7,28 +7,33 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 )
 
-type MmQueue []pgtype.UUID
+type MmQueue []User
 
 // CaroMatch == nil && error == nil: join queue, not found match yet
-func (a *AppState) UserJoinCaroQueue(us *UserSession) (*CaroMatch, error) {
+func (a *AppState) UserJoinCaroQueue(dbe *DbExecDeps, uSes *UserSession) (*CaroMatch, error) {
+	newU, err := GetUserById(dbe, uSes.UserId)
+	if err != nil {
+		return nil, err
+	}
+
 	a.mu.Lock()
 	defer a.mu.Unlock()
 
-	if us.State != Idle {
+	if uSes.State != Idle {
 		return nil, fmt.Errorf("invalid state")
 	}
 
 	if len(a.caroQueue) > 0 {
-		xPlayerId := a.caroQueue[0]
-		a.caroQueue = removedUserFromMmQueue(xPlayerId, a.caroQueue)
+		xPlayer := a.caroQueue[0]
+		a.caroQueue = removedUserFromMmQueue(xPlayer.ID, a.caroQueue)
 
-		oPlayerId := us.UserId
+		oPlayer := newU
 
-		matchId := uuid.New()
-		a.caroMatchesMap[matchId] = NewCaroMatch(true, xPlayerId, oPlayerId)
+		matchId := uuid.Must(uuid.NewV7())
+		a.caroMatchesMap[matchId] = NewCaroMatch(matchId, true, xPlayer.ID, int(xPlayer.CaroRating), oPlayer.ID, int(oPlayer.CaroRating))
 
-		xSession := a.userSessionsMap[xPlayerId]
-		oSession := a.userSessionsMap[oPlayerId]
+		xSession := a.userSessionsMap[xPlayer.ID]
+		oSession := a.userSessionsMap[oPlayer.ID]
 
 		xSession.State = PlayingCaro
 		xSession.CurrentMatchId = matchId
@@ -39,8 +44,8 @@ func (a *AppState) UserJoinCaroQueue(us *UserSession) (*CaroMatch, error) {
 		return a.caroMatchesMap[matchId], nil
 	}
 
-	a.caroQueue = append(a.caroQueue, us.UserId)
-	us.State = QueuingCaro
+	a.caroQueue = append(a.caroQueue, newU)
+	uSes.State = QueuingCaro
 
 	return nil, nil
 }
@@ -61,8 +66,8 @@ func (a *AppState) UserLeaveCaroQueue(us *UserSession) error {
 }
 
 func removedUserFromMmQueue(uId pgtype.UUID, q MmQueue) MmQueue {
-	for i, id := range q {
-		if id == uId {
+	for i, u := range q {
+		if u.ID == uId {
 			return append(q[:i], q[i+1:]...)
 		}
 	}

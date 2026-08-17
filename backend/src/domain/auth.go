@@ -3,47 +3,85 @@ package domain
 import (
 	"backend/src/db"
 	"backend/src/shared"
+	"strconv"
 
 	"github.com/jackc/pgx/v5/pgtype"
 )
 
-func SyncUserFromTokenPayload(dbe *DbExecDeps, payload TokenPayload) (db.User, error) {
+type User struct {
+	db.User
+	Role    UserRole    `json:"role"`
+	AvtCode UserAvtCode `json:"avtCode"`
+}
+
+type UserRole string
+
+const (
+	ADMIN UserRole = "ADMIN"
+	USER  UserRole = "USER"
+	GUEST UserRole = "GUEST"
+)
+
+type UserAvtCode string
+
+const (
+	BUNNY   UserAvtCode = "BUNNY"
+	KITTEN  UserAvtCode = "KITTEN"
+	GRIZZLE UserAvtCode = "GRIZZLE"
+	HAMSTER UserAvtCode = "HAMSTER"
+	MONKEY  UserAvtCode = "MONKEY"
+)
+
+func ToUser(u db.User) User {
+	return User{
+		User: u,
+		Role: UserRole(u.Role),
+		AvtCode: UserAvtCode(u.AvtCode),
+	}
+}
+
+func GetUserById(dbe *DbExecDeps, id pgtype.UUID) (User, error) {
+	dbU, err := dbe.q.GetUserById(dbe.c, id)
+	return ToUser(dbU), err
+}
+
+func SyncUserFromTokenPayload(dbe *DbExecDeps, payload TokenPayload) (User, error) {
 	idFromPayload, err := shared.ParseStringToUuid(payload.Sub)
 	if err != nil {
-		return db.User{}, err
+		return User{}, err
 	}
 
-	updateRole := db.UserRoleUSER
+	updateRole := USER
 	updateEmail := pgtype.Text{
 		String: payload.Email,
 		Valid:  true,
 	}
 	if payload.IsAnonymous {
-		updateRole = db.UserRoleGUEST
+		updateRole = GUEST
 		updateEmail = pgtype.Text{
 			String: "",
 			Valid:  false,
 		}
 	}
 
-	existingUser, err := dbe.q.GetUserById(dbe.c, idFromPayload)
+	existingUser, err := GetUserById(dbe, idFromPayload)
 	// user chưa tồn tại
 	if err != nil {
 		avtCode, name := genRandomIdentity(adjs, avtCodes)
 		err := dbe.q.InsertUser(dbe.c, db.InsertUserParams{
 			ID:      idFromPayload,
-			Role:    updateRole,
+			Role:    string(updateRole),
 			Name:    name,
-			AvtCode: avtCode,
+			AvtCode: string(avtCode),
 			Email:   updateEmail,
 		})
 		if err != nil {
-			return db.User{}, err
+			return User{}, err
 		}
 
-		createdUser, err := dbe.q.GetUserById(dbe.c, idFromPayload)
+		createdUser, err := GetUserById(dbe, idFromPayload)
 		if err != nil {
-			return db.User{}, err
+			return User{}, err
 		}
 		return createdUser, nil
 	}
@@ -54,20 +92,20 @@ func SyncUserFromTokenPayload(dbe *DbExecDeps, payload TokenPayload) (db.User, e
 
 	err = dbe.q.UpdateUser(dbe.c, db.UpdateUserParams{
 		ID:      existingUser.ID,
-		Role:    updateRole,
+		Role:    string(updateRole),
 		Name:    existingUser.Name,
-		AvtCode: existingUser.AvtCode,
+		AvtCode: string(existingUser.AvtCode),
 		Email:   updateEmail,
 	})
 	if err != nil {
-		return db.User{}, err
+		return User{}, err
 	}
 
 	syncedUser, err := dbe.q.GetUserById(dbe.c, idFromPayload)
 	if err != nil {
-		return db.User{}, err
+		return User{}, err
 	}
-	return syncedUser, nil
+	return ToUser(syncedUser), nil
 }
 
 var adjs = []string{
@@ -83,19 +121,19 @@ var adjs = []string{
 	"Grumpy",
 }
 
-var avtCodes = []db.UserAvtCode{
-	db.UserAvtCodeBUNNY,
-	db.UserAvtCodeKITTEN,
-	db.UserAvtCodeGRIZZLE,
-	db.UserAvtCodeHAMSTER,
-	db.UserAvtCodeMONKEY,
+var avtCodes = []UserAvtCode{
+	BUNNY,
+	KITTEN,
+	GRIZZLE,
+	HAMSTER,
+	MONKEY,
 }
 
-func getNameFromAdjAndAvtCode(adj string, avtCode db.UserAvtCode) string {
-	return adj + shared.CapitalizeString(string(avtCode))
+func getNameFromAdjAndAvtCode(adj string, avtCode UserAvtCode) string {
+	return adj + shared.CapitalizeString(string(avtCode)) + strconv.Itoa(shared.RandomInt(100, 999))
 }
 
-func genRandomIdentity(adjs []string, avtCodes []db.UserAvtCode) (db.UserAvtCode, string) {
+func genRandomIdentity(adjs []string, avtCodes []UserAvtCode) (UserAvtCode, string) {
 	randAvtCode := avtCodes[shared.RandomInt(0, len(avtCodes)-1)]
 	randAdj := adjs[shared.RandomInt(0, len(adjs)-1)]
 	randName := getNameFromAdjAndAvtCode(randAdj, randAvtCode)

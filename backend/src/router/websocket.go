@@ -4,12 +4,14 @@ import (
 	"backend/src/config"
 	"backend/src/db"
 	"backend/src/domain"
+	"context"
 	"encoding/json"
 	"log"
+	"time"
 
 	"github.com/gofiber/contrib/v3/websocket"
 	"github.com/gofiber/fiber/v3"
-	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5/pgxpool"
 )
 
 type ClientMessage struct {
@@ -43,9 +45,9 @@ const (
 	CaroMatchEnded    ServerMessageCode = "CARO:MATCH_ENDED"
 )
 
-func InitWsRoute(a *fiber.App, q *db.Queries, conf config.Config, app *domain.AppState) {
-	a.Get("/ws", wsAuthMiddleware(q, conf), websocket.New(func(wsc *websocket.Conn) {
-		uId := wsc.Locals("currentUser").(db.User).ID
+func InitWsRoute(a *fiber.App, q *db.Queries, conf config.Config, app *domain.AppState, pool *pgxpool.Pool) {
+	a.Get("/ws", wsAuthMiddleware(q, conf, pool), websocket.New(func(wsc *websocket.Conn) {
+		uId := wsc.Locals("currentUser").(domain.User).ID
 
 		// save userSession
 		userSession := app.GetOrCreateUserSession(uId)
@@ -74,19 +76,30 @@ func InitWsRoute(a *fiber.App, q *db.Queries, conf config.Config, app *domain.Ap
 				continue
 			}
 
+			ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+			dbe := domain.CreateDbExecDeps(ctx, q, pool)
+
 			// condition handlers
 			if cMsg.Code == Ping {
 				handlePingMessage(userSession, app)
 			}
 			if cMsg.Code == CaroJoinQueue {
-				handleCaroJoinQueueMessage(userSession, app)
+				handleCaroJoinQueueMessage(userSession, app, dbe)
 			}
 			if cMsg.Code == CaroLeaveQueue {
 				handleCaroLeaveQueueMessage(userSession, app)
 			}
 			if cMsg.Code == CaroPlayMove {
-				handleCaroPlayMoveMessage(userSession, app, cMsg.Data)
+				var msgMove CaroPlayMoveMessageData
+				err := json.Unmarshal(cMsg.Data, &msgMove)
+				if err != nil {
+					userSession.WsConn.WriteJSON(buildServerMessage(Error, *userSession, app))
+				} else {
+					handleCaroPlayMoveMessage(userSession, app, msgMove, dbe)
+				}
+
 			}
+			cancel()
 		}
 	}))
 }
@@ -109,8 +122,8 @@ func handlePingMessage(s *domain.UserSession, a *domain.AppState) {
 	s.WsConn.WriteJSON(buildServerMessage(Ok, *s, a))
 }
 
-func handleCaroJoinQueueMessage(s *domain.UserSession, a *domain.AppState) {
-	match, err := a.UserJoinCaroQueue(s)
+func handleCaroJoinQueueMessage(s *domain.UserSession, a *domain.AppState, dbe *domain.DbExecDeps) {
+	match, err := a.UserJoinCaroQueue(dbe, s)
 	if err != nil {
 		s.WsConn.WriteJSON(buildServerMessage(Error, *s, a))
 		return
@@ -145,15 +158,13 @@ type CaroPlayMoveMessageData struct {
 	Y int `json:"y"`
 }
 
-func handleCaroPlayMoveMessage(s *domain.UserSession, a *domain.AppState, msgData json.RawMessage) {
+func handleCaroPlayMoveMessage(
+	s *domain.UserSession,
+	a *domain.AppState,
+	move CaroPlayMoveMessageData,
+	dbe *domain.DbExecDeps,
+) {
 	if s.State != domain.PlayingCaro {
-		s.WsConn.WriteJSON(buildServerMessage(Error, *s, a))
-		return
-	}
-
-	var msgMove CaroPlayMoveMessageData
-	err := json.Unmarshal(msgData, &msgMove)
-	if err != nil {
 		s.WsConn.WriteJSON(buildServerMessage(Error, *s, a))
 		return
 	}
@@ -169,7 +180,7 @@ func handleCaroPlayMoveMessage(s *domain.UserSession, a *domain.AppState, msgDat
 		userPiece = domain.O
 	}
 
-	err = match.Move(userPiece, msgMove.X, msgMove.Y)
+	err := match.Move(userPiece, move.X, move.Y)
 	if err != nil {
 		s.WsConn.WriteJSON(buildServerMessage(Error, *s, a))
 		return
@@ -188,12 +199,8 @@ func handleCaroPlayMoveMessage(s *domain.UserSession, a *domain.AppState, msgDat
 		return
 	}
 
-	// TODO: impl post match correctly later
-	matchResult := *match
-	xSess.State = domain.Idle
-	xSess.CurrentMatchId = uuid.Nil
-	oSess.State = domain.Idle
-	oSess.CurrentMatchId = uuid.Nil
+	// match ended
+	matchResult, err := a.ProcessCaroMatchEnded(dbe, *match)
 
 	xMsg := buildServerMessage(CaroMatchEnded, *xSess, a)
 	xMsg.Data = map[string]any{

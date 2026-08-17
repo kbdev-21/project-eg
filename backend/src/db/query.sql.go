@@ -11,20 +11,25 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 )
 
-const getUserByEmail = `-- name: GetUserByEmail :one
-SELECT id, role, name, avt_code, email, created_at, updated_at FROM users
-WHERE email = $1 LIMIT 1
+const getCaroMatchById = `-- name: GetCaroMatchById :one
+SELECT id, x_player_id, x_player_rating_before, x_player_rating_after, o_player_id, o_player_rating_before, o_player_rating_after, winner_id, final_board, moves, created_at, updated_at FROM caro_matches
+WHERE id = $1 LIMIT 1
 `
 
-func (q *Queries) GetUserByEmail(ctx context.Context, email pgtype.Text) (User, error) {
-	row := q.db.QueryRow(ctx, getUserByEmail, email)
-	var i User
+func (q *Queries) GetCaroMatchById(ctx context.Context, id pgtype.UUID) (CaroMatch, error) {
+	row := q.db.QueryRow(ctx, getCaroMatchById, id)
+	var i CaroMatch
 	err := row.Scan(
 		&i.ID,
-		&i.Role,
-		&i.Name,
-		&i.AvtCode,
-		&i.Email,
+		&i.XPlayerID,
+		&i.XPlayerRatingBefore,
+		&i.XPlayerRatingAfter,
+		&i.OPlayerID,
+		&i.OPlayerRatingBefore,
+		&i.OPlayerRatingAfter,
+		&i.WinnerID,
+		&i.FinalBoard,
+		&i.Moves,
 		&i.CreatedAt,
 		&i.UpdatedAt,
 	)
@@ -32,7 +37,7 @@ func (q *Queries) GetUserByEmail(ctx context.Context, email pgtype.Text) (User, 
 }
 
 const getUserById = `-- name: GetUserById :one
-SELECT id, role, name, avt_code, email, created_at, updated_at FROM users
+SELECT id, role, name, avt_code, email, caro_rating, created_at, updated_at FROM users
 WHERE id = $1 LIMIT 1
 `
 
@@ -45,10 +50,66 @@ func (q *Queries) GetUserById(ctx context.Context, id pgtype.UUID) (User, error)
 		&i.Name,
 		&i.AvtCode,
 		&i.Email,
+		&i.CaroRating,
 		&i.CreatedAt,
 		&i.UpdatedAt,
 	)
 	return i, err
+}
+
+const insertCaroMatch = `-- name: InsertCaroMatch :exec
+INSERT INTO caro_matches (
+    id,
+    x_player_id,
+    x_player_rating_before,
+    x_player_rating_after,
+    o_player_id,
+    o_player_rating_before,
+    o_player_rating_after,
+    winner_id,
+    final_board,
+    moves
+) VALUES (
+    $1,
+    $2,
+    $3,
+    $4,
+    $5,
+    $6,
+    $7,
+    $8,
+    $9,
+    $10
+)
+`
+
+type InsertCaroMatchParams struct {
+	ID                  pgtype.UUID `json:"id"`
+	XPlayerID           pgtype.UUID `json:"xPlayerId"`
+	XPlayerRatingBefore int32       `json:"xPlayerRatingBefore"`
+	XPlayerRatingAfter  int32       `json:"xPlayerRatingAfter"`
+	OPlayerID           pgtype.UUID `json:"oPlayerId"`
+	OPlayerRatingBefore int32       `json:"oPlayerRatingBefore"`
+	OPlayerRatingAfter  int32       `json:"oPlayerRatingAfter"`
+	WinnerID            pgtype.UUID `json:"winnerId"`
+	FinalBoard          []byte      `json:"finalBoard"`
+	Moves               []byte      `json:"moves"`
+}
+
+func (q *Queries) InsertCaroMatch(ctx context.Context, arg InsertCaroMatchParams) error {
+	_, err := q.db.Exec(ctx, insertCaroMatch,
+		arg.ID,
+		arg.XPlayerID,
+		arg.XPlayerRatingBefore,
+		arg.XPlayerRatingAfter,
+		arg.OPlayerID,
+		arg.OPlayerRatingBefore,
+		arg.OPlayerRatingAfter,
+		arg.WinnerID,
+		arg.FinalBoard,
+		arg.Moves,
+	)
+	return err
 }
 
 const insertUser = `-- name: InsertUser :exec
@@ -69,9 +130,9 @@ INSERT INTO users (
 
 type InsertUserParams struct {
 	ID      pgtype.UUID `json:"id"`
-	Role    UserRole    `json:"role"`
+	Role    string      `json:"role"`
 	Name    string      `json:"name"`
-	AvtCode UserAvtCode `json:"avtCode"`
+	AvtCode string      `json:"avtCode"`
 	Email   pgtype.Text `json:"email"`
 }
 
@@ -99,9 +160,9 @@ WHERE id = $1
 
 type UpdateUserParams struct {
 	ID      pgtype.UUID `json:"id"`
-	Role    UserRole    `json:"role"`
+	Role    string      `json:"role"`
 	Name    string      `json:"name"`
-	AvtCode UserAvtCode `json:"avtCode"`
+	AvtCode string      `json:"avtCode"`
 	Email   pgtype.Text `json:"email"`
 }
 
@@ -113,5 +174,23 @@ func (q *Queries) UpdateUser(ctx context.Context, arg UpdateUserParams) error {
 		arg.AvtCode,
 		arg.Email,
 	)
+	return err
+}
+
+const updateUserCaroRating = `-- name: UpdateUserCaroRating :exec
+UPDATE users
+SET
+    caro_rating = GREATEST(0, caro_rating + $2),
+    updated_at = now()
+WHERE id = $1
+`
+
+type UpdateUserCaroRatingParams struct {
+	ID         pgtype.UUID `json:"id"`
+	CaroRating int32       `json:"caroRating"`
+}
+
+func (q *Queries) UpdateUserCaroRating(ctx context.Context, arg UpdateUserCaroRatingParams) error {
+	_, err := q.db.Exec(ctx, updateUserCaroRating, arg.ID, arg.CaroRating)
 	return err
 }

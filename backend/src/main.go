@@ -39,8 +39,8 @@ func main() {
 
 	appState := domain.NewAppState()
 	
-	router.InitHttpRoutes(app, queries, conf)
-	router.InitWsRoute(app, queries, conf, appState)
+	router.InitHttpRoutes(app, queries, conf, dbPool)
+	router.InitWsRoute(app, queries, conf, appState, dbPool)
 
 	log.Fatal(app.Listen(":3000"))
 }

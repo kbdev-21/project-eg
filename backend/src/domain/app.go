@@ -7,6 +7,7 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5/pgtype"
+	"github.com/jackc/pgx/v5/pgxpool"
 )
 
 type AppState struct {
@@ -28,12 +29,14 @@ func NewAppState() *AppState {
 type DbExecDeps struct {
 	c context.Context
 	q *db.Queries
+	p *pgxpool.Pool
 }
 
-func CreateDbExecDeps(c context.Context, q *db.Queries) *DbExecDeps {
+func CreateDbExecDeps(c context.Context, q *db.Queries, p *pgxpool.Pool) *DbExecDeps {
 	return &DbExecDeps{
 		c: c,
 		q: q,
+		p: p,
 	}
 }
 
@@ -53,8 +56,8 @@ func (a *AppState) GetOrCreateUserSession(userId pgtype.UUID) *UserSession {
 	session, ok := a.userSessionsMap[userId]
 	if !ok {
 		session = &UserSession{
-			UserId: userId,
-			State:  Idle,
+			UserId:         userId,
+			State:          Idle,
 			CurrentMatchId: uuid.Nil,
 		}
 		a.userSessionsMap[userId] = session

@@ -8,9 +8,10 @@ import (
 
 	"github.com/gofiber/contrib/v3/websocket"
 	"github.com/gofiber/fiber/v3"
+	"github.com/jackc/pgx/v5/pgxpool"
 )
 
-func authMiddleware(q *db.Queries, conf config.Config) fiber.Handler {
+func authMiddleware(q *db.Queries, conf config.Config, p *pgxpool.Pool) fiber.Handler {
 	return func(ctx fiber.Ctx) error {
 		authHeader := ctx.Get("Authorization")
 		if !strings.HasPrefix(authHeader, "Bearer ") {
@@ -23,7 +24,7 @@ func authMiddleware(q *db.Queries, conf config.Config) fiber.Handler {
 			return ctx.SendStatus(401)
 		}
 
-		currentUser, err := domain.SyncUserFromTokenPayload(domain.CreateDbExecDeps(ctx, q), payload)
+		currentUser, err := domain.SyncUserFromTokenPayload(domain.CreateDbExecDeps(ctx, q, p), payload)
 		if err != nil {
 			return ctx.SendStatus(401)
 		}
@@ -34,7 +35,7 @@ func authMiddleware(q *db.Queries, conf config.Config) fiber.Handler {
 	}
 }
 
-func wsAuthMiddleware(q *db.Queries, conf config.Config) fiber.Handler {
+func wsAuthMiddleware(q *db.Queries, conf config.Config, p *pgxpool.Pool) fiber.Handler {
 	return func(ctx fiber.Ctx) error {
 		if websocket.IsWebSocketUpgrade(ctx) {
 			token := ctx.Query("token", "")
@@ -44,7 +45,7 @@ func wsAuthMiddleware(q *db.Queries, conf config.Config) fiber.Handler {
 				return ctx.SendStatus(401)
 			}
 
-			currentUser, err := domain.SyncUserFromTokenPayload(domain.CreateDbExecDeps(ctx, q), payload)
+			currentUser, err := domain.SyncUserFromTokenPayload(domain.CreateDbExecDeps(ctx, q, p), payload)
 			if err != nil {
 				return ctx.SendStatus(401)
 			}

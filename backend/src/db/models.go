@@ -5,106 +5,31 @@
 package db
 
 import (
-	"database/sql/driver"
-	"fmt"
-
 	"github.com/jackc/pgx/v5/pgtype"
 )
 
-type UserAvtCode string
-
-const (
-	UserAvtCodeBUNNY   UserAvtCode = "BUNNY"
-	UserAvtCodeKITTEN  UserAvtCode = "KITTEN"
-	UserAvtCodeGRIZZLE UserAvtCode = "GRIZZLE"
-	UserAvtCodeHAMSTER UserAvtCode = "HAMSTER"
-	UserAvtCodeMONKEY  UserAvtCode = "MONKEY"
-)
-
-func (e *UserAvtCode) Scan(src interface{}) error {
-	switch s := src.(type) {
-	case []byte:
-		*e = UserAvtCode(s)
-	case string:
-		*e = UserAvtCode(s)
-	default:
-		return fmt.Errorf("unsupported scan type for UserAvtCode: %T", src)
-	}
-	return nil
-}
-
-type NullUserAvtCode struct {
-	UserAvtCode UserAvtCode `json:"userAvtCode"`
-	Valid       bool        `json:"valid"` // Valid is true if UserAvtCode is not NULL
-}
-
-// Scan implements the Scanner interface.
-func (ns *NullUserAvtCode) Scan(value interface{}) error {
-	if value == nil {
-		ns.UserAvtCode, ns.Valid = "", false
-		return nil
-	}
-	ns.Valid = true
-	return ns.UserAvtCode.Scan(value)
-}
-
-// Value implements the driver Valuer interface.
-func (ns NullUserAvtCode) Value() (driver.Value, error) {
-	if !ns.Valid {
-		return nil, nil
-	}
-	return string(ns.UserAvtCode), nil
-}
-
-type UserRole string
-
-const (
-	UserRoleADMIN UserRole = "ADMIN"
-	UserRoleUSER  UserRole = "USER"
-	UserRoleGUEST UserRole = "GUEST"
-)
-
-func (e *UserRole) Scan(src interface{}) error {
-	switch s := src.(type) {
-	case []byte:
-		*e = UserRole(s)
-	case string:
-		*e = UserRole(s)
-	default:
-		return fmt.Errorf("unsupported scan type for UserRole: %T", src)
-	}
-	return nil
-}
-
-type NullUserRole struct {
-	UserRole UserRole `json:"userRole"`
-	Valid    bool     `json:"valid"` // Valid is true if UserRole is not NULL
-}
-
-// Scan implements the Scanner interface.
-func (ns *NullUserRole) Scan(value interface{}) error {
-	if value == nil {
-		ns.UserRole, ns.Valid = "", false
-		return nil
-	}
-	ns.Valid = true
-	return ns.UserRole.Scan(value)
-}
-
-// Value implements the driver Valuer interface.
-func (ns NullUserRole) Value() (driver.Value, error) {
-	if !ns.Valid {
-		return nil, nil
-	}
-	return string(ns.UserRole), nil
+type CaroMatch struct {
+	ID                  pgtype.UUID        `json:"id"`
+	XPlayerID           pgtype.UUID        `json:"xPlayerId"`
+	XPlayerRatingBefore int32              `json:"xPlayerRatingBefore"`
+	XPlayerRatingAfter  int32              `json:"xPlayerRatingAfter"`
+	OPlayerID           pgtype.UUID        `json:"oPlayerId"`
+	OPlayerRatingBefore int32              `json:"oPlayerRatingBefore"`
+	OPlayerRatingAfter  int32              `json:"oPlayerRatingAfter"`
+	WinnerID            pgtype.UUID        `json:"winnerId"`
+	FinalBoard          []byte             `json:"finalBoard"`
+	Moves               []byte             `json:"moves"`
+	CreatedAt           pgtype.Timestamptz `json:"createdAt"`
+	UpdatedAt           pgtype.Timestamptz `json:"updatedAt"`
 }
 
 type User struct {
-	ID        pgtype.UUID        `json:"id"`
-	Role      UserRole           `json:"role"`
-	Name      string             `json:"name"`
-	AvtCode   UserAvtCode        `json:"avtCode"`
-	Email     pgtype.Text        `json:"email"`
-	CreatedAt pgtype.Timestamptz `json:"createdAt"`
-	UpdatedAt pgtype.Timestamptz `json:"updatedAt"`
+	ID         pgtype.UUID        `json:"id"`
+	Role       string             `json:"role"`
+	Name       string             `json:"name"`
+	AvtCode    string             `json:"avtCode"`
+	Email      pgtype.Text        `json:"email"`
+	CaroRating int32              `json:"caroRating"`
+	CreatedAt  pgtype.Timestamptz `json:"createdAt"`
+	UpdatedAt  pgtype.Timestamptz `json:"updatedAt"`
 }
