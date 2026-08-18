@@ -37,20 +37,24 @@ func checkAllCaroMatchesTimeout(a *domain.AppState, dbe *domain.DbExec) {
 				continue
 			}
 
-			xSes, _ := a.GetUserSession(matchResult.XPlayerID)
-			oSes, _ := a.GetUserSession(matchResult.OPlayerID)
+			xSes, xExisted := a.GetUserSession(matchResult.XPlayerID)
+			oSes, oExisted := a.GetUserSession(matchResult.OPlayerID)
 
-			xMsg := router.BuildServerMessage(router.CaroMatchEndedOutOfTime, *xSes, a)
-			xMsg.Data = map[string]any{
-				"endedMatch": matchResult,
+			if xExisted {
+				xMsg := router.BuildServerMessage(router.CaroMatchEndedOutOfTime, *xSes, a)
+				xMsg.Data = map[string]any{
+					"endedMatch": matchResult,
+				}
+				xSes.WsConn.WriteJSON(xMsg)
 			}
-			xSes.WsConn.WriteJSON(xMsg)
 
-			oMsg := router.BuildServerMessage(router.CaroMatchEndedOutOfTime, *oSes, a)
-			oMsg.Data = map[string]any{
-				"endedMatch": matchResult,
+			if oExisted {
+				oMsg := router.BuildServerMessage(router.CaroMatchEndedOutOfTime, *oSes, a)
+				oMsg.Data = map[string]any{
+					"endedMatch": matchResult,
+				}
+				oSes.WsConn.WriteJSON(oMsg)
 			}
-			oSes.WsConn.WriteJSON(oMsg)
 		}
 	}
 }
