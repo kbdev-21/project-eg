@@ -1,6 +1,7 @@
 package domain
 
 import (
+	"context"
 	"fmt"
 
 	"github.com/google/uuid"
@@ -10,8 +11,8 @@ import (
 type MmQueue []User
 
 // CaroMatch == nil && error == nil: join queue, not found match yet
-func (a *AppState) UserJoinCaroQueue(dbe *DbExec, uSes *UserSession) (*CaroMatch, error) {
-	newU, err := GetUserById(dbe, uSes.UserId)
+func (a *AppState) UserJoinCaroQueue(ctx context.Context, uSes *UserSession) (*CaroMatch, error) {
+	newU, err := a.GetUserById(ctx, uSes.UserId)
 	if err != nil {
 		return nil, err
 	}

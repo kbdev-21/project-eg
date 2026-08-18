@@ -2,7 +2,6 @@ package domain
 
 import (
 	"backend/src/db"
-	"context"
 	"sync"
 
 	"github.com/google/uuid"
@@ -11,30 +10,23 @@ import (
 )
 
 type AppState struct {
+	// states
 	mu              sync.Mutex
 	userSessionsMap map[pgtype.UUID]*UserSession
 	caroQueue       MmQueue
 	caroMatchesMap  map[uuid.UUID]*CaroMatch
-}
 
-type DbExec struct {
-	c context.Context
+	// db exec
 	q *db.Queries
 	p *pgxpool.Pool
 }
 
-func InitAppState() *AppState {
+func InitAppState(q *db.Queries, p *pgxpool.Pool) *AppState {
 	return &AppState{
 		mu:              sync.Mutex{},
 		userSessionsMap: map[pgtype.UUID]*UserSession{},
 		caroQueue:       MmQueue{},
 		caroMatchesMap:  map[uuid.UUID]*CaroMatch{},
-	}
-}
-
-func CreateDbExec(c context.Context, q *db.Queries, p *pgxpool.Pool) *DbExec {
-	return &DbExec{
-		c: c,
 		q: q,
 		p: p,
 	}

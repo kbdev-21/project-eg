@@ -2,6 +2,7 @@ package domain
 
 import (
 	"backend/src/db"
+	"context"
 	"encoding/json"
 	"math"
 
@@ -29,15 +30,15 @@ func ToCaroMatchResult(m db.CaroMatch) CaroMatchResult {
 	}
 }
 
-func GetCaroMatchResultById(dbe *DbExec, id pgtype.UUID) (CaroMatchResult, error) {
-	m, err := dbe.q.GetCaroMatchById(dbe.c, id)
+func (a *AppState) GetCaroMatchResultById(ctx context.Context, id pgtype.UUID) (CaroMatchResult, error) {
+	m, err := a.q.GetCaroMatchById(ctx, id)
 	if err != nil {
 		return CaroMatchResult{}, err
 	}
 	return ToCaroMatchResult(m), nil
 }
 
-func (a *AppState) ProcessCaroMatchEnded(dbe *DbExec, m CaroMatch) (CaroMatchResult, error) {
+func (a *AppState) ProcessCaroMatchEnded(ctx context.Context, m CaroMatch) (CaroMatchResult, error) {
 	result := 0
 	winnerId := pgtype.UUID{}
 	if m.Winner == X {
@@ -53,16 +54,16 @@ func (a *AppState) ProcessCaroMatchEnded(dbe *DbExec, m CaroMatch) (CaroMatchRes
 	encodedBoard, _ := json.Marshal(m.Board)
 	encodedMoves, _ := json.Marshal(m.Moves)
 
-	tx, err := dbe.p.Begin(dbe.c)
+	tx, err := a.p.Begin(ctx)
 	if err != nil {
 		return CaroMatchResult{}, err
 	}
-	defer tx.Rollback(dbe.c)
+	defer tx.Rollback(ctx)
 
-	txq := dbe.q.WithTx(tx)
+	txq := a.q.WithTx(tx)
 
 	dbMatchId := pgtype.UUID{Bytes: m.Id, Valid: true}
-	err = txq.InsertCaroMatch(dbe.c, db.InsertCaroMatchParams{
+	err = txq.InsertCaroMatch(ctx, db.InsertCaroMatchParams{
 		ID:                  dbMatchId,
 		XPlayerID:           m.XPlayerId,
 		XPlayerRatingBefore: int32(m.XPlayerRating),
@@ -78,36 +79,39 @@ func (a *AppState) ProcessCaroMatchEnded(dbe *DbExec, m CaroMatch) (CaroMatchRes
 		return CaroMatchResult{}, err
 	}
 
-	err = txq.UpdateUserCaroRating(dbe.c, db.UpdateUserCaroRatingParams{ID: m.XPlayerId, CaroRating: int32(xRatingChange)})
+	err = txq.UpdateUserCaroRating(ctx, db.UpdateUserCaroRatingParams{ID: m.XPlayerId, CaroRating: int32(xRatingChange)})
 	if err != nil {
 		return CaroMatchResult{}, err
 	}
 
-	err = txq.UpdateUserCaroRating(dbe.c, db.UpdateUserCaroRatingParams{ID: m.OPlayerId, CaroRating: int32(oRatingChange)})
+	err = txq.UpdateUserCaroRating(ctx, db.UpdateUserCaroRatingParams{ID: m.OPlayerId, CaroRating: int32(oRatingChange)})
 	if err != nil {
 		return CaroMatchResult{}, err
 	}
 
-	err = tx.Commit(dbe.c)
+	err = tx.Commit(ctx)
 	if err != nil {
 		return CaroMatchResult{}, err
 	}
 
 	a.mu.Lock()
-	defer a.mu.Unlock()
 
 	delete(a.caroMatchesMap, m.Id)
+	
+	xSes, ok := a.userSessionsMap[m.XPlayerId] 
+	if ok {
+		xSes.CurrentMatchId = uuid.Nil
+		xSes.State = Idle
+	}
+	oSes, ok := a.userSessionsMap[m.OPlayerId] 
+	if ok {
+		oSes.CurrentMatchId = uuid.Nil
+		oSes.State = Idle
+	}
 
-	xSes := a.userSessionsMap[m.XPlayerId]
-	oSes := a.userSessionsMap[m.OPlayerId]
+	a.mu.Unlock()
 
-	xSes.CurrentMatchId = uuid.Nil
-	xSes.State = Idle
-
-	oSes.CurrentMatchId = uuid.Nil
-	oSes.State = Idle
-
-	return GetCaroMatchResultById(dbe, dbMatchId)
+	return a.GetCaroMatchResultById(ctx, dbMatchId)
 }
 
 // result: -1 lose, 0 draw, 1 win

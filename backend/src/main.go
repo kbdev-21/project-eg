@@ -16,12 +16,12 @@ import (
 )
 
 func main() {
-	conf, err := config.LoadConfig()
+	cfg, err := config.LoadConfig()
 	if err != nil {
 		log.Fatal(err)
 	}
 
-	dbPool, err := pgxpool.New(context.Background(), conf.PostgresConnectionUrl)
+	dbPool, err := pgxpool.New(context.Background(), cfg.PostgresConnectionUrl)
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -38,12 +38,12 @@ func main() {
 		return ctx.JSON("Welcome to Project EG")
 	})
 
-	appState := domain.InitAppState()
+	appState := domain.InitAppState(queries, dbPool)
 
-	router.InitHttpRoutes(fib, queries, conf, dbPool)
-	router.InitWsRoute(fib, queries, conf, appState, dbPool)
+	router.InitHttpRoutes(fib, appState, cfg)
+	router.InitWsRoute(fib, appState, cfg)
 
-	go schedule.EverySecond(appState, queries, dbPool)
+	go schedule.EverySecond(appState)
 
 	log.Fatal(fib.Listen(":3000"))
 }

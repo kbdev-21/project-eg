@@ -2,17 +2,15 @@ package router
 
 import (
 	"backend/src/config"
-	"backend/src/db"
 	"backend/src/domain"
 	"backend/src/shared"
 
 	"github.com/gofiber/fiber/v3"
-	"github.com/jackc/pgx/v5/pgxpool"
 )
 
-func InitHttpRoutes(fib *fiber.App, q *db.Queries, conf config.Config, pool *pgxpool.Pool) {
-	fib.Get("/api/me", authMiddleware(q, conf, pool), getMeHandler())
-	fib.Get("/api/users/:id", getUserByIdHandler(q, pool))
+func InitHttpRoutes(fib *fiber.App, a *domain.AppState, cfg config.Config) {
+	fib.Get("/api/me", authMiddleware(a, cfg), getMeHandler())
+	fib.Get("/api/users/:id", getUserByIdHandler(a))
 }
 
 func getMeHandler() fiber.Handler {
@@ -22,13 +20,13 @@ func getMeHandler() fiber.Handler {
 	}
 }
 
-func getUserByIdHandler(q *db.Queries, p *pgxpool.Pool) fiber.Handler {
+func getUserByIdHandler(a *domain.AppState) fiber.Handler {
 	return func(ctx fiber.Ctx) error {
 		id, err := shared.ParseStringToUuid(ctx.Params("id", ""))
 		if err != nil {
 			return ctx.SendStatus(400)
 		}
-		user, err := domain.GetUserById(domain.CreateDbExec(ctx, q, p), id)
+		user, err := a.GetUserById(ctx, id)
 		if err != nil {
 			return ctx.SendStatus(404)
 		}

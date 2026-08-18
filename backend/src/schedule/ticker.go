@@ -1,29 +1,25 @@
 package schedule
 
 import (
-	"backend/src/db"
 	"backend/src/domain"
 	"backend/src/router"
 	"context"
-	"fmt"
 	"time"
-
-	"github.com/jackc/pgx/v5/pgxpool"
 )
 
-func EverySecond(a *domain.AppState, q *db.Queries, p *pgxpool.Pool) {
+func EverySecond(a *domain.AppState) {
 	ticker := time.NewTicker(time.Second)
 	defer ticker.Stop()
 
 	for range ticker.C {
-		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-		checkAllCaroMatchesTimeout(a, domain.CreateDbExec(ctx, q, p))
-		cancel()
+		checkAllCaroMatchesTimeout(a)
 	}
 }
 
-func checkAllCaroMatchesTimeout(a *domain.AppState, dbe *domain.DbExec) {
-	fmt.Println("Check time out")
+func checkAllCaroMatchesTimeout(a *domain.AppState) {
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+
 	matches := a.GetCaroMatches()
 	for _, m := range matches {
 		lastAction := m.StartedAt
@@ -32,7 +28,7 @@ func checkAllCaroMatchesTimeout(a *domain.AppState, dbe *domain.DbExec) {
 		}
 		if time.Since(lastAction) > domain.CARO_MAX_MOVE_TIME {
 			m.OutOfTime()
-			matchResult, err := a.ProcessCaroMatchEnded(dbe, *m)
+			matchResult, err := a.ProcessCaroMatchEnded(ctx, *m)
 			if err != nil {
 				continue
 			}

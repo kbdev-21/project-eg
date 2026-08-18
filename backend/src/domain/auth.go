@@ -3,6 +3,7 @@ package domain
 import (
 	"backend/src/db"
 	"backend/src/shared"
+	"context"
 	"strconv"
 
 	"github.com/jackc/pgx/v5/pgtype"
@@ -40,12 +41,12 @@ func ToUser(u db.User) User {
 	}
 }
 
-func GetUserById(dbe *DbExec, id pgtype.UUID) (User, error) {
-	dbU, err := dbe.q.GetUserById(dbe.c, id)
+func (a *AppState) GetUserById(ctx context.Context, id pgtype.UUID) (User, error) {
+	dbU, err := a.q.GetUserById(ctx, id)
 	return ToUser(dbU), err
 }
 
-func SyncUserFromTokenPayload(dbe *DbExec, payload TokenPayload) (User, error) {
+func (a *AppState) SyncUserFromTokenPayload(ctx context.Context, payload TokenPayload) (User, error) {
 	idFromPayload, err := shared.ParseStringToUuid(payload.Sub)
 	if err != nil {
 		return User{}, err
@@ -64,11 +65,11 @@ func SyncUserFromTokenPayload(dbe *DbExec, payload TokenPayload) (User, error) {
 		}
 	}
 
-	existingUser, err := GetUserById(dbe, idFromPayload)
+	existingUser, err := a.GetUserById(ctx, idFromPayload)
 	// user chưa tồn tại
 	if err != nil {
 		avtCode, name := genRandomIdentity(adjs, avtCodes)
-		err := dbe.q.InsertUser(dbe.c, db.InsertUserParams{
+		err := a.q.InsertUser(ctx, db.InsertUserParams{
 			ID:      idFromPayload,
 			Role:    string(updateRole),
 			Name:    name,
@@ -79,7 +80,7 @@ func SyncUserFromTokenPayload(dbe *DbExec, payload TokenPayload) (User, error) {
 			return User{}, err
 		}
 
-		createdUser, err := GetUserById(dbe, idFromPayload)
+		createdUser, err := a.GetUserById(ctx, idFromPayload)
 		if err != nil {
 			return User{}, err
 		}
@@ -90,7 +91,7 @@ func SyncUserFromTokenPayload(dbe *DbExec, payload TokenPayload) (User, error) {
 		return existingUser, nil
 	}
 
-	err = dbe.q.UpdateUser(dbe.c, db.UpdateUserParams{
+	err = a.q.UpdateUser(ctx, db.UpdateUserParams{
 		ID:      existingUser.ID,
 		Role:    string(updateRole),
 		Name:    existingUser.Name,
@@ -101,7 +102,7 @@ func SyncUserFromTokenPayload(dbe *DbExec, payload TokenPayload) (User, error) {
 		return User{}, err
 	}
 
-	syncedUser, err := dbe.q.GetUserById(dbe.c, idFromPayload)
+	syncedUser, err := a.q.GetUserById(ctx, idFromPayload)
 	if err != nil {
 		return User{}, err
 	}
