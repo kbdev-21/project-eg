@@ -13,6 +13,7 @@ func InitHttpRoutes(fib *fiber.App, a *domain.AppState, cfg config.Config) {
 	fib.Get("/api/me", authMiddleware(a, cfg), getMeHandler())
 	fib.Put("/api/me", authMiddleware(a, cfg), updateMeHandler(a))
 	fib.Get("/api/users/:id", getUserByIdHandler(a))
+	fib.Get("/api/users/by-name/:name", getUserByNameHandler(a))
 }
 
 func getMeHandler() fiber.Handler {
@@ -54,6 +55,17 @@ func getUserByIdHandler(a *domain.AppState) fiber.Handler {
 			return ctx.SendStatus(400)
 		}
 		user, err := a.GetUserById(ctx, id)
+		if err != nil {
+			return ctx.SendStatus(404)
+		}
+		return ctx.JSON(user)
+	}
+}
+
+func getUserByNameHandler(a *domain.AppState) fiber.Handler {
+	return func(ctx fiber.Ctx) error {
+		name := ctx.Params("name", "")
+		user, err := a.GetUserByName(ctx, name)
 		if err != nil {
 			return ctx.SendStatus(404)
 		}

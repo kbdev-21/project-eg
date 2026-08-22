@@ -2,11 +2,16 @@
 SELECT * FROM users
 WHERE id = $1 LIMIT 1;
 
+-- name: GetUserByName :one
+SELECT * FROM users
+WHERE name = $1 LIMIT 1;
+
 -- name: InsertUser :exec
 INSERT INTO users (
     id,
     role,
     name,
+    normalized_name,
     avt_code,
     email
 ) VALUES (
@@ -14,7 +19,8 @@ INSERT INTO users (
     $2,
     $3,
     $4,
-    $5
+    $5,
+    $6
 );
 
 -- name: UpdateUser :exec
@@ -22,8 +28,9 @@ UPDATE users
 SET
     role = $2,
     name = $3,
-    avt_code = $4,
-    email = $5,
+    normalized_name = $4,
+    avt_code = $5,
+    email = $6,
     updated_at = now()
 WHERE id = $1;
 

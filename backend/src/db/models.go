@@ -24,12 +24,13 @@ type CaroMatch struct {
 }
 
 type User struct {
-	ID         pgtype.UUID        `json:"id"`
-	Role       string             `json:"role"`
-	Name       string             `json:"name"`
-	AvtCode    string             `json:"avtCode"`
-	Email      pgtype.Text        `json:"email"`
-	CaroRating int32              `json:"caroRating"`
-	CreatedAt  pgtype.Timestamptz `json:"createdAt"`
-	UpdatedAt  pgtype.Timestamptz `json:"updatedAt"`
+	ID             pgtype.UUID        `json:"id"`
+	Role           string             `json:"role"`
+	Name           string             `json:"name"`
+	NormalizedName string             `json:"normalizedName"`
+	AvtCode        string             `json:"avtCode"`
+	Email          pgtype.Text        `json:"email"`
+	CaroRating     int32              `json:"caroRating"`
+	CreatedAt      pgtype.Timestamptz `json:"createdAt"`
+	UpdatedAt      pgtype.Timestamptz `json:"updatedAt"`
 }

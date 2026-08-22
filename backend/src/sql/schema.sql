@@ -2,7 +2,8 @@ CREATE TABLE users (
     id uuid PRIMARY KEY,
     
     role text NOT NULL,
-    name text NOT NULL,
+    name text NOT NULL UNIQUE,
+    normalized_name text NOT NULL,
     avt_code text NOT NULL,
     email text UNIQUE,
     

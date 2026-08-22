@@ -37,7 +37,7 @@ func (q *Queries) GetCaroMatchById(ctx context.Context, id pgtype.UUID) (CaroMat
 }
 
 const getUserById = `-- name: GetUserById :one
-SELECT id, role, name, avt_code, email, caro_rating, created_at, updated_at FROM users
+SELECT id, role, name, normalized_name, avt_code, email, caro_rating, created_at, updated_at FROM users
 WHERE id = $1 LIMIT 1
 `
 
@@ -48,6 +48,29 @@ func (q *Queries) GetUserById(ctx context.Context, id pgtype.UUID) (User, error)
 		&i.ID,
 		&i.Role,
 		&i.Name,
+		&i.NormalizedName,
+		&i.AvtCode,
+		&i.Email,
+		&i.CaroRating,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+	)
+	return i, err
+}
+
+const getUserByName = `-- name: GetUserByName :one
+SELECT id, role, name, normalized_name, avt_code, email, caro_rating, created_at, updated_at FROM users
+WHERE name = $1 LIMIT 1
+`
+
+func (q *Queries) GetUserByName(ctx context.Context, name string) (User, error) {
+	row := q.db.QueryRow(ctx, getUserByName, name)
+	var i User
+	err := row.Scan(
+		&i.ID,
+		&i.Role,
+		&i.Name,
+		&i.NormalizedName,
 		&i.AvtCode,
 		&i.Email,
 		&i.CaroRating,
@@ -117,6 +140,7 @@ INSERT INTO users (
     id,
     role,
     name,
+    normalized_name,
     avt_code,
     email
 ) VALUES (
@@ -124,16 +148,18 @@ INSERT INTO users (
     $2,
     $3,
     $4,
-    $5
+    $5,
+    $6
 )
 `
 
 type InsertUserParams struct {
-	ID      pgtype.UUID `json:"id"`
-	Role    string      `json:"role"`
-	Name    string      `json:"name"`
-	AvtCode string      `json:"avtCode"`
-	Email   pgtype.Text `json:"email"`
+	ID             pgtype.UUID `json:"id"`
+	Role           string      `json:"role"`
+	Name           string      `json:"name"`
+	NormalizedName string      `json:"normalizedName"`
+	AvtCode        string      `json:"avtCode"`
+	Email          pgtype.Text `json:"email"`
 }
 
 func (q *Queries) InsertUser(ctx context.Context, arg InsertUserParams) error {
@@ -141,6 +167,7 @@ func (q *Queries) InsertUser(ctx context.Context, arg InsertUserParams) error {
 		arg.ID,
 		arg.Role,
 		arg.Name,
+		arg.NormalizedName,
 		arg.AvtCode,
 		arg.Email,
 	)
@@ -152,18 +179,20 @@ UPDATE users
 SET
     role = $2,
     name = $3,
-    avt_code = $4,
-    email = $5,
+    normalized_name = $4,
+    avt_code = $5,
+    email = $6,
     updated_at = now()
 WHERE id = $1
 `
 
 type UpdateUserParams struct {
-	ID      pgtype.UUID `json:"id"`
-	Role    string      `json:"role"`
-	Name    string      `json:"name"`
-	AvtCode string      `json:"avtCode"`
-	Email   pgtype.Text `json:"email"`
+	ID             pgtype.UUID `json:"id"`
+	Role           string      `json:"role"`
+	Name           string      `json:"name"`
+	NormalizedName string      `json:"normalizedName"`
+	AvtCode        string      `json:"avtCode"`
+	Email          pgtype.Text `json:"email"`
 }
 
 func (q *Queries) UpdateUser(ctx context.Context, arg UpdateUserParams) error {
@@ -171,6 +200,7 @@ func (q *Queries) UpdateUser(ctx context.Context, arg UpdateUserParams) error {
 		arg.ID,
 		arg.Role,
 		arg.Name,
+		arg.NormalizedName,
 		arg.AvtCode,
 		arg.Email,
 	)
