@@ -46,6 +46,35 @@ func (a *AppState) GetUserById(ctx context.Context, id pgtype.UUID) (User, error
 	return ToUser(dbU), err
 }
 
+type UpdateUserReq struct {
+	Name    string `json:"name" validate:"required,min=2,max=24"`
+	AvtCode string `json:"avtCode" validate:"required,oneof=BUNNY KITTEN GRIZZLE HAMSTER MONKEY"` // from UserAvtCode
+}
+
+func (a *AppState) UpdateUserInfo(ctx context.Context, id pgtype.UUID, req UpdateUserReq) (User, error) {
+	existingUser, err := a.GetUserById(ctx, id)
+	if err != nil {
+		return User{}, err
+	}
+
+	err = a.q.UpdateUser(ctx, db.UpdateUserParams{
+		ID:      id,
+		Role:    string(existingUser.Role),
+		Name:    req.Name,
+		AvtCode: req.AvtCode,
+		Email:   existingUser.Email,
+	})
+	if err != nil {
+		return User{}, err
+	}
+
+	updatedUser, err := a.GetUserById(ctx, id)
+	if err != nil {
+		return User{}, err
+	}
+	return updatedUser, nil
+}
+
 func (a *AppState) SyncUserFromTokenPayload(ctx context.Context, payload TokenPayload) (User, error) {
 	idFromPayload, err := shared.ParseStringToUuid(payload.Sub)
 	if err != nil {

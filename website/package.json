@@ -26,6 +26,8 @@
 	},
 	"dependencies": {
 		"@supabase/supabase-js": "^2.112.2",
+		"@tanstack/svelte-query": "^6.1.38",
+		"axios": "^1.19.0",
 		"bits-ui": "^2.18.1",
 		"svelte-sonner": "^1.1.1"
 	}

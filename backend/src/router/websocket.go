@@ -90,12 +90,11 @@ func InitWsRoute(fib *fiber.App, a *domain.AppState, cfg config.Config) {
 				err := json.Unmarshal(cMsg.Data, &msgMove)
 				if err != nil {
 					userSession.WsConn.WriteJSON(BuildServerMessage(Error, *userSession, a))
-				} else {
-					handleCaroPlayMoveMessage(userSession, a, msgMove)
+					continue
 				}
+				handleCaroPlayMoveMessage(userSession, a, msgMove)
 
 			}
-
 		}
 	}))
 }
