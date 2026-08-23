@@ -1,9 +1,7 @@
+import { PUBLIC_SUPABASE_PUBLISHABLE_KEY, PUBLIC_SUPABASE_URL } from "$env/static/public";
 import { createClient } from "@supabase/supabase-js";
 
-const sbUrl = "https://meulllksjzrlelsjixzi.supabase.co";
-const sbPublishableKey = "sb_publishable_-2N43aDwIHItePMeYybY3Q_87_bHNZc"
-
-export const auth = createClient(sbUrl, sbPublishableKey, {
+export const auth = createClient(PUBLIC_SUPABASE_URL, PUBLIC_SUPABASE_PUBLISHABLE_KEY, {
   auth: {
     flowType: "pkce"
   }

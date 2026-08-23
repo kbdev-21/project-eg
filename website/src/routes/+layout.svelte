@@ -9,6 +9,7 @@
 	import { browser } from "$app/environment";
 	import { ensureAuth } from "$lib/core/ensure-auth";
 	import Sidebar from "$lib/components/Sidebar.svelte";
+    import { connectWs } from "$lib/core/websocket";
 
 	let { children } = $props();
 
@@ -26,12 +27,19 @@
 			authStore.isReady = true;
 		});
 
-		ensureAuth();
+		initApp();
 
 		return () => {
 			listener.subscription.unsubscribe();
 		};
 	});
+
+	async function initApp() {
+		await ensureAuth();
+		if(authStore.session && authStore.isReady) {
+			connectWs(authStore.session.access_token);
+		}
+	}
 </script>
 
 <svelte:head>
