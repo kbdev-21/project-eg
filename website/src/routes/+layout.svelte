@@ -3,11 +3,12 @@
 	import favicon from "$lib/assets/favicon.svg";
 	import { onMount } from "svelte";
 	import { auth } from "$lib/core/auth";
-	import { authStore } from "$lib/stores/auth-store";
+	import { authStore } from "$lib/stores/auth-store.svelte";
 	import { Toaster } from "svelte-sonner";
 	import { QueryClient, QueryClientProvider } from "@tanstack/svelte-query";
 	import { browser } from "$app/environment";
 	import { ensureAuth } from "$lib/core/ensure-auth";
+	import Sidebar from "$lib/components/Sidebar.svelte";
 
 	let { children } = $props();
 
@@ -21,10 +22,8 @@
 
 	onMount(() => {
 		const { data: listener } = auth.onAuthStateChange((_, session) => {
-			authStore.set({
-				session,
-				isReady: true,
-			});
+			authStore.session = session;
+			authStore.isReady = true;
 		});
 
 		ensureAuth();
@@ -42,5 +41,8 @@
 
 <QueryClientProvider client={queryClient}>
 	<Toaster position="top-center" />
-	{@render children()}
+	<div class="min-h-screen bg-stone-100 text-neutral-900">
+		<Sidebar />
+		{@render children()}
+	</div>
 </QueryClientProvider>

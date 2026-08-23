@@ -1,13 +1,11 @@
-import { authStore } from "$lib/stores/auth-store";
+import { authStore } from "$lib/stores/auth-store.svelte";
 import { auth } from "./auth";
 
 export async function ensureAuth() {
   const { data } = await auth.getSession();
   if (!data.session) {
     const { data } = await auth.signInAnonymously();
-    authStore.set({
-      session: data.session,
-      isReady: true
-    });
+    authStore.session = data.session;
+    authStore.isReady = true;
   }
 }
