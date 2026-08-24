@@ -1,14 +1,12 @@
 package domain
 
 import (
-	"github.com/gofiber/contrib/v3/websocket"
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5/pgtype"
 )
 
 type UserSession struct {
 	UserId         pgtype.UUID      `json:"userId"`
-	WsConn         *websocket.Conn  `json:"-"`
 	State          UserSessionState `json:"state"`
 	CurrentMatchId uuid.UUID        `json:"currentMatchId"` // Nil = not playing/watching
 }

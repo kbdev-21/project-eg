@@ -39,11 +39,12 @@ func main() {
 	})
 
 	appState := domain.InitAppState(queries, dbPool)
+	wsHub := router.NewWsConnHub()
 
 	router.InitHttpRoutes(fib, appState, cfg)
-	router.InitWsRoute(fib, appState, cfg)
+	router.InitWsRoute(fib, appState, cfg, wsHub)
 
-	go schedule.EverySecond(appState)
+	go schedule.EverySecond(appState, wsHub)
 
 	log.Fatal(fib.Listen(":3000"))
 }

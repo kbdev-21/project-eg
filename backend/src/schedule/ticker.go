@@ -7,16 +7,16 @@ import (
 	"time"
 )
 
-func EverySecond(a *domain.AppState) {
+func EverySecond(a *domain.AppState, hub *router.WsConnHub) {
 	ticker := time.NewTicker(time.Second)
 	defer ticker.Stop()
 
 	for range ticker.C {
-		checkAllCaroMatchesTimeout(a)
+		checkAllCaroMatchesTimeout(a, hub)
 	}
 }
 
-func checkAllCaroMatchesTimeout(a *domain.AppState) {
+func checkAllCaroMatchesTimeout(a *domain.AppState, hub *router.WsConnHub) {
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 
@@ -36,20 +36,20 @@ func checkAllCaroMatchesTimeout(a *domain.AppState) {
 			xSes, xExisted := a.GetUserSession(matchResult.XPlayerID)
 			oSes, oExisted := a.GetUserSession(matchResult.OPlayerID)
 
-			if xExisted && xSes.WsConn != nil {
+			if xExisted {
 				xMsg := router.BuildServerMessage(router.CaroMatchEndedOutOfTime, *xSes, a)
 				xMsg.Data = map[string]any{
 					"endedMatch": matchResult,
 				}
-				xSes.WsConn.WriteJSON(xMsg)
+				hub.Send(xSes.UserId, xMsg)
 			}
 
-			if oExisted && oSes.WsConn != nil {
+			if oExisted {
 				oMsg := router.BuildServerMessage(router.CaroMatchEndedOutOfTime, *oSes, a)
 				oMsg.Data = map[string]any{
 					"endedMatch": matchResult,
 				}
-				oSes.WsConn.WriteJSON(oMsg)
+				hub.Send(oSes.UserId, oMsg)
 			}
 		}
 	}
