@@ -54,7 +54,7 @@ func InitWsRoute(fib *fiber.App, a *domain.AppState, cfg config.Config) {
 			userSession.WsConn.Close()
 		}
 		userSession.WsConn = wsc
-		log.Printf("Websocket: User %s connect", uId)
+		log.Printf("WS: User %s connect", uId)
 
 		for {
 			_, data, err := wsc.ReadMessage()
@@ -64,7 +64,7 @@ func InitWsRoute(fib *fiber.App, a *domain.AppState, cfg config.Config) {
 				if userSession.WsConn == wsc {
 					userSession.WsConn = nil
 				}
-				log.Printf("Websocket: User %s disconnect", uId)
+				log.Printf("WS: User %s disconnect", uId)
 				break
 			}
 
@@ -76,6 +76,7 @@ func InitWsRoute(fib *fiber.App, a *domain.AppState, cfg config.Config) {
 			}
 
 			// condition handlers
+			log.Printf("WS: User %s send %s message", uId, cMsg.Code)
 			if cMsg.Code == Ping {
 				handlePingMessage(userSession, a)
 			}
@@ -132,12 +133,12 @@ func handleCaroJoinQueueMessage(s *domain.UserSession, a *domain.AppState) {
 	}
 
 	xSess, existed := a.GetUserSession(match.XPlayerId)
-	if existed {
+	if existed && xSess.WsConn != nil {
 		xSess.WsConn.WriteJSON(BuildServerMessage(CaroMatchFound, *xSess, a))
 	}
 
 	oSess, existed := a.GetUserSession(match.OPlayerId)
-	if existed {
+	if existed && oSess.WsConn != nil {
 		oSess.WsConn.WriteJSON(BuildServerMessage(CaroMatchFound, *oSess, a))
 	}
 }
@@ -194,8 +195,12 @@ func handleCaroPlayMoveMessage(
 	}
 
 	if !match.IsEnded {
-		xSess.WsConn.WriteJSON(BuildServerMessage(CaroNewBoardState, *xSess, a))
-		oSess.WsConn.WriteJSON(BuildServerMessage(CaroNewBoardState, *oSess, a))
+		if xSess.WsConn != nil {
+			xSess.WsConn.WriteJSON(BuildServerMessage(CaroNewBoardState, *xSess, a))
+		}
+		if oSess.WsConn != nil {
+			oSess.WsConn.WriteJSON(BuildServerMessage(CaroNewBoardState, *oSess, a))
+		}
 		return
 	}
 
@@ -206,11 +211,15 @@ func handleCaroPlayMoveMessage(
 	xMsg.Data = map[string]any{
 		"endedMatch": matchResult,
 	}
-	xSess.WsConn.WriteJSON(xMsg)
+	if xSess.WsConn != nil {
+		xSess.WsConn.WriteJSON(xMsg)
+	}
 
 	oMsg := BuildServerMessage(CaroMatchEnded, *oSess, a)
 	oMsg.Data = map[string]any{
 		"endedMatch": matchResult,
 	}
-	oSess.WsConn.WriteJSON(oMsg)
+	if oSess.WsConn != nil {
+		oSess.WsConn.WriteJSON(oMsg)
+	}
 }
