@@ -5,7 +5,7 @@
   import { Hash, Search, Bot, UserPlus, Swords } from "@lucide/svelte";
   import { authStore } from "$lib/stores/auth-store.svelte";
   import { createQuery } from "@tanstack/svelte-query";
-  import { sendPingMessage } from "$lib/core/websocket";
+  import { sendCaroJoinQueueMessage, sendPingMessage } from "$lib/core/websocket";
     import { onMount } from "svelte";
 
   const meQuery = createQuery(() => ({
@@ -13,10 +13,6 @@
     queryFn: () => getMe(authStore.session?.access_token ?? ""),
     enabled: authStore.isReady,
   }));
-
-  onMount(() => {
-    
-  })
 </script>
 
 <div class="min-h-screen">
@@ -53,7 +49,7 @@
         subtitle="Tìm trận và đấu với đối thủ cùng trình độ"
         iconBg="bg-amber-400 text-white"
         onclick={() => {
-          sendPingMessage();
+          sendCaroJoinQueueMessage();
         }}
       >
         {#snippet icon()}
