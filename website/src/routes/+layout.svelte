@@ -9,7 +9,7 @@
 	import { browser } from "$app/environment";
 	import { ensureAuth } from "$lib/core/ensure-auth";
 	import Sidebar from "$lib/components/Sidebar.svelte";
-    import { connectWs } from "$lib/core/websocket";
+    import { connectWs, disconnectWs } from "$lib/core/websocket";
 
 	let { children } = $props();
 
@@ -22,24 +22,22 @@
 	});
 
 	onMount(() => {
+		// connectWs idempotent -> gọi lại ở mỗi lần TOKEN_REFRESHED để socket luôn có token mới
 		const { data: listener } = auth.onAuthStateChange((_, session) => {
 			authStore.session = session;
 			authStore.isReady = true;
+			if (session) {
+				connectWs(session.access_token);
+			}
 		});
 
-		initApp();
+		ensureAuth();
 
 		return () => {
 			listener.subscription.unsubscribe();
+			disconnectWs();
 		};
 	});
-
-	async function initApp() {
-		await ensureAuth();
-		if(authStore.session && authStore.isReady) {
-			connectWs(authStore.session.access_token);
-		}
-	}
 </script>
 
 <svelte:head>

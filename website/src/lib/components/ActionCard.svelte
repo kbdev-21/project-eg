@@ -9,6 +9,7 @@
     icon,
     trailing,
     onclick,
+    disabled = false,
   }: {
     title: string;
     subtitle: string;
@@ -16,13 +17,15 @@
     icon: Snippet;
     trailing?: Snippet;
     onclick?: () => void;
+    disabled?: boolean;
   } = $props();
 </script>
 
 <button
   type="button"
   {onclick}
-  class="flex w-full items-center justify-between rounded-2xl border border-black/[0.06] bg-white px-4 py-4 text-left shadow-sm transition duration-150 hover:-translate-y-0.5 hover:border-black/10 hover:shadow-md"
+  {disabled}
+  class="flex w-full items-center justify-between rounded-2xl border border-black/[0.06] bg-white px-4 py-4 text-left shadow-sm transition duration-150 enabled:hover:-translate-y-0.5 enabled:hover:border-black/10 enabled:hover:shadow-md disabled:cursor-default disabled:opacity-60"
 >
   <div class="flex items-center gap-3">
     <div class="flex h-11 w-11 items-center justify-center rounded-xl {iconBg}">

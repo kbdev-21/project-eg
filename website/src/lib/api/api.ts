@@ -12,3 +12,8 @@ export async function getMe(token: string) {
   });
   return res.data;
 }
+
+export async function getUserById(id: string) {
+  const res = await axios.get<User>(`${baseUrl}/api/users/${id}`);
+  return res.data;
+}

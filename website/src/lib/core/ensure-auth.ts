@@ -3,9 +3,14 @@ import { auth } from "./auth";
 
 export async function ensureAuth() {
   const { data } = await auth.getSession();
-  if (!data.session) {
-    const { data } = await auth.signInAnonymously();
+
+  if (data.session) {
     authStore.session = data.session;
     authStore.isReady = true;
+    return;
   }
+
+  const { data: signedIn } = await auth.signInAnonymously();
+  authStore.session = signedIn.session;
+  authStore.isReady = true;
 }
