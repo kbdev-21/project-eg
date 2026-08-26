@@ -10,15 +10,20 @@ import (
 
 type CaroMatch struct {
 	ID                  pgtype.UUID        `json:"id"`
+	IsRated             bool               `json:"isRated"`
 	XPlayerID           pgtype.UUID        `json:"xPlayerId"`
 	XPlayerRatingBefore int32              `json:"xPlayerRatingBefore"`
-	XPlayerRatingAfter  int32              `json:"xPlayerRatingAfter"`
+	XPlayerRatingAfter  pgtype.Int4        `json:"xPlayerRatingAfter"`
 	OPlayerID           pgtype.UUID        `json:"oPlayerId"`
 	OPlayerRatingBefore int32              `json:"oPlayerRatingBefore"`
-	OPlayerRatingAfter  int32              `json:"oPlayerRatingAfter"`
+	OPlayerRatingAfter  pgtype.Int4        `json:"oPlayerRatingAfter"`
 	WinnerID            pgtype.UUID        `json:"winnerId"`
-	FinalBoard          []byte             `json:"finalBoard"`
+	Status              string             `json:"status"`
+	EndReason           string             `json:"endReason"`
+	Board               []byte             `json:"board"`
 	Moves               []byte             `json:"moves"`
+	StartedAt           pgtype.Timestamptz `json:"startedAt"`
+	EndedAt             pgtype.Timestamptz `json:"endedAt"`
 	CreatedAt           pgtype.Timestamptz `json:"createdAt"`
 	UpdatedAt           pgtype.Timestamptz `json:"updatedAt"`
 }

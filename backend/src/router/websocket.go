@@ -101,7 +101,7 @@ func BuildServerMessage(code ServerMessageCode, s domain.UserSession, a *domain.
 		match, existed := a.GetCaroMatch(s.CurrentMatchId)
 		if existed == true {
 			sMsg.Data = map[string]any{
-				"currentMatch": match,
+				"match": match,
 			}
 		}
 
@@ -190,27 +190,27 @@ func handleCaroPlayMoveMessage(
 		return
 	}
 
-	if !match.IsEnded {
+	if match.Status == domain.Playing {
 		hub.Send(xSess.UserId, BuildServerMessage(CaroNewBoardState, *xSess, a))
 		hub.Send(oSess.UserId, BuildServerMessage(CaroNewBoardState, *oSess, a))
 		return
 	}
 
 	// match ended
-	matchResult, err := a.ProcessCaroMatchEnded(ctx, *match)
+	endedMatch, err := a.ProcessCaroMatchEnded(ctx, *match)
 	if err != nil {
 		return
 	}
 
 	xMsg := BuildServerMessage(CaroMatchEnded, *xSess, a)
 	xMsg.Data = map[string]any{
-		"endedMatch": matchResult,
+		"match": endedMatch,
 	}
 	hub.Send(xSess.UserId, xMsg)
 
 	oMsg := BuildServerMessage(CaroMatchEnded, *oSess, a)
 	oMsg.Data = map[string]any{
-		"endedMatch": matchResult,
+		"match": endedMatch,
 	}
 	hub.Send(oSess.UserId, oMsg)
 }

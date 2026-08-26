@@ -48,6 +48,7 @@ WHERE id = $1 LIMIT 1;
 -- name: InsertCaroMatch :exec
 INSERT INTO caro_matches (
     id,
+    is_rated,
     x_player_id,
     x_player_rating_before,
     x_player_rating_after,
@@ -55,8 +56,12 @@ INSERT INTO caro_matches (
     o_player_rating_before,
     o_player_rating_after,
     winner_id,
-    final_board,
-    moves
+    status,
+    end_reason,
+    board,
+    moves,
+    started_at,
+    ended_at
 ) VALUES (
     $1,
     $2,
@@ -67,5 +72,10 @@ INSERT INTO caro_matches (
     $7,
     $8,
     $9,
-    $10
+    $10,
+    $11,
+    $12,
+    $13,
+    $14,
+    $15
 );

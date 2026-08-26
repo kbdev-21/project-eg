@@ -12,7 +12,7 @@ import (
 )
 
 const getCaroMatchById = `-- name: GetCaroMatchById :one
-SELECT id, x_player_id, x_player_rating_before, x_player_rating_after, o_player_id, o_player_rating_before, o_player_rating_after, winner_id, final_board, moves, created_at, updated_at FROM caro_matches
+SELECT id, is_rated, x_player_id, x_player_rating_before, x_player_rating_after, o_player_id, o_player_rating_before, o_player_rating_after, winner_id, status, end_reason, board, moves, started_at, ended_at, created_at, updated_at FROM caro_matches
 WHERE id = $1 LIMIT 1
 `
 
@@ -21,6 +21,7 @@ func (q *Queries) GetCaroMatchById(ctx context.Context, id pgtype.UUID) (CaroMat
 	var i CaroMatch
 	err := row.Scan(
 		&i.ID,
+		&i.IsRated,
 		&i.XPlayerID,
 		&i.XPlayerRatingBefore,
 		&i.XPlayerRatingAfter,
@@ -28,8 +29,12 @@ func (q *Queries) GetCaroMatchById(ctx context.Context, id pgtype.UUID) (CaroMat
 		&i.OPlayerRatingBefore,
 		&i.OPlayerRatingAfter,
 		&i.WinnerID,
-		&i.FinalBoard,
+		&i.Status,
+		&i.EndReason,
+		&i.Board,
 		&i.Moves,
+		&i.StartedAt,
+		&i.EndedAt,
 		&i.CreatedAt,
 		&i.UpdatedAt,
 	)
@@ -83,6 +88,7 @@ func (q *Queries) GetUserByName(ctx context.Context, name string) (User, error) 
 const insertCaroMatch = `-- name: InsertCaroMatch :exec
 INSERT INTO caro_matches (
     id,
+    is_rated,
     x_player_id,
     x_player_rating_before,
     x_player_rating_after,
@@ -90,8 +96,12 @@ INSERT INTO caro_matches (
     o_player_rating_before,
     o_player_rating_after,
     winner_id,
-    final_board,
-    moves
+    status,
+    end_reason,
+    board,
+    moves,
+    started_at,
+    ended_at
 ) VALUES (
     $1,
     $2,
@@ -102,26 +112,37 @@ INSERT INTO caro_matches (
     $7,
     $8,
     $9,
-    $10
+    $10,
+    $11,
+    $12,
+    $13,
+    $14,
+    $15
 )
 `
 
 type InsertCaroMatchParams struct {
-	ID                  pgtype.UUID `json:"id"`
-	XPlayerID           pgtype.UUID `json:"xPlayerId"`
-	XPlayerRatingBefore int32       `json:"xPlayerRatingBefore"`
-	XPlayerRatingAfter  int32       `json:"xPlayerRatingAfter"`
-	OPlayerID           pgtype.UUID `json:"oPlayerId"`
-	OPlayerRatingBefore int32       `json:"oPlayerRatingBefore"`
-	OPlayerRatingAfter  int32       `json:"oPlayerRatingAfter"`
-	WinnerID            pgtype.UUID `json:"winnerId"`
-	FinalBoard          []byte      `json:"finalBoard"`
-	Moves               []byte      `json:"moves"`
+	ID                  pgtype.UUID        `json:"id"`
+	IsRated             bool               `json:"isRated"`
+	XPlayerID           pgtype.UUID        `json:"xPlayerId"`
+	XPlayerRatingBefore int32              `json:"xPlayerRatingBefore"`
+	XPlayerRatingAfter  pgtype.Int4        `json:"xPlayerRatingAfter"`
+	OPlayerID           pgtype.UUID        `json:"oPlayerId"`
+	OPlayerRatingBefore int32              `json:"oPlayerRatingBefore"`
+	OPlayerRatingAfter  pgtype.Int4        `json:"oPlayerRatingAfter"`
+	WinnerID            pgtype.UUID        `json:"winnerId"`
+	Status              string             `json:"status"`
+	EndReason           string             `json:"endReason"`
+	Board               []byte             `json:"board"`
+	Moves               []byte             `json:"moves"`
+	StartedAt           pgtype.Timestamptz `json:"startedAt"`
+	EndedAt             pgtype.Timestamptz `json:"endedAt"`
 }
 
 func (q *Queries) InsertCaroMatch(ctx context.Context, arg InsertCaroMatchParams) error {
 	_, err := q.db.Exec(ctx, insertCaroMatch,
 		arg.ID,
+		arg.IsRated,
 		arg.XPlayerID,
 		arg.XPlayerRatingBefore,
 		arg.XPlayerRatingAfter,
@@ -129,8 +150,12 @@ func (q *Queries) InsertCaroMatch(ctx context.Context, arg InsertCaroMatchParams
 		arg.OPlayerRatingBefore,
 		arg.OPlayerRatingAfter,
 		arg.WinnerID,
-		arg.FinalBoard,
+		arg.Status,
+		arg.EndReason,
+		arg.Board,
 		arg.Moves,
+		arg.StartedAt,
+		arg.EndedAt,
 	)
 	return err
 }

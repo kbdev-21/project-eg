@@ -16,18 +16,25 @@ CREATE TABLE users (
 CREATE TABLE caro_matches (
     id uuid PRIMARY KEY,
 
+    is_rated boolean NOT NULL DEFAULT true,
+
     x_player_id uuid NOT NULL REFERENCES users(id),
     x_player_rating_before integer NOT NULL,
-    x_player_rating_after integer NOT NULL,
+    x_player_rating_after integer,
 
     o_player_id uuid NOT NULL REFERENCES users(id),
     o_player_rating_before integer NOT NULL,
-    o_player_rating_after integer NOT NULL,
+    o_player_rating_after integer,
 
     winner_id uuid REFERENCES users(id),
-    final_board jsonb NOT NULL,
+    status text NOT NULL,
+    end_reason text NOT NULL DEFAULT '',
+
+    board jsonb NOT NULL,
     moves jsonb NOT NULL,
 
+    started_at timestamptz NOT NULL,
+    ended_at timestamptz,
     created_at timestamptz NOT NULL DEFAULT now(),
     updated_at timestamptz NOT NULL DEFAULT now()
 );

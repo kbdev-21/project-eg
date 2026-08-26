@@ -1,6 +1,7 @@
 package domain
 
 import (
+	"backend/src/shared"
 	"fmt"
 	"time"
 
@@ -10,24 +11,47 @@ import (
 const CARO_BOARD_SIZE = 15
 const CARO_MAX_MOVE_TIME = 20 * time.Second
 
+// CaroMatch dùng chung cho match đang chơi (trong RAM) và match cũ (đọc từ DB).
+// Field nullable = chỉ biết sau khi trận kết thúc.
 type CaroMatch struct {
 	Id uuid.UUID `json:"id"`
 
 	IsRated bool `json:"isRated"`
 
-	XPlayerId     uuid.UUID `json:"xPlayerId"`
-	XPlayerRating int       `json:"xPlayerRating"`
-	OPlayerId     uuid.UUID `json:"oPlayerId"`
-	OPlayerRating int       `json:"oPlayerRating"`
+	XPlayerId           uuid.UUID            `json:"xPlayerId"`
+	XPlayerRatingBefore int                  `json:"xPlayerRatingBefore"`
+	XPlayerRatingAfter  shared.Nullable[int] `json:"xPlayerRatingAfter"`
+	OPlayerId           uuid.UUID            `json:"oPlayerId"`
+	OPlayerRatingBefore int                  `json:"oPlayerRatingBefore"`
+	OPlayerRatingAfter  shared.Nullable[int] `json:"oPlayerRatingAfter"`
 
 	Board  CaroBoard  `json:"board"`
 	Moves  []CaroMove `json:"moves"`
 	TurnOf CaroPiece  `json:"turnOf"`
 
-	Winner    CaroPiece `json:"winner"`
-	IsEnded   bool      `json:"isEnded"`
-	StartedAt time.Time `json:"startedAt"`
+	Status    CaroStatus                 `json:"status"`
+	EndReason CaroEndReason              `json:"endReason"`
+	StartedAt time.Time                  `json:"startedAt"`
+	EndedAt   shared.Nullable[time.Time] `json:"endedAt"`
 }
+
+type CaroStatus string
+
+const (
+	Playing CaroStatus = "PLAYING"
+	XWon    CaroStatus = "X_WON"
+	OWon    CaroStatus = "O_WON"
+	Draw    CaroStatus = "DRAW"
+)
+
+type CaroEndReason string
+
+const (
+	NotEnded  CaroEndReason = ""
+	FiveInRow CaroEndReason = "FIVE_IN_ROW"
+	FullBoard CaroEndReason = "FULL_BOARD"
+	OutOfTime CaroEndReason = "OUT_OF_TIME"
+)
 
 type CaroBoard [CARO_BOARD_SIZE][CARO_BOARD_SIZE]CaroPiece
 
@@ -48,18 +72,21 @@ type CaroMove struct {
 
 func NewCaroMatch(id uuid.UUID, isRated bool, xId uuid.UUID, xRating int, oId uuid.UUID, oRating int) *CaroMatch {
 	return &CaroMatch{
-		Id:            id,
-		IsRated:       isRated,
-		XPlayerId:     xId,
-		XPlayerRating: xRating,
-		OPlayerId:     oId,
-		OPlayerRating: oRating,
-		Board:         CaroBoard{},
-		Moves:         []CaroMove{},
-		TurnOf:        X,
-		Winner:        None,
-		IsEnded:       false,
-		StartedAt:     time.Now(),
+		Id:                  id,
+		IsRated:             isRated,
+		XPlayerId:           xId,
+		XPlayerRatingBefore: xRating,
+		XPlayerRatingAfter:  shared.Nullable[int]{IsNull: true},
+		OPlayerId:           oId,
+		OPlayerRatingBefore: oRating,
+		OPlayerRatingAfter:  shared.Nullable[int]{IsNull: true},
+		Board:               CaroBoard{},
+		Moves:               []CaroMove{},
+		TurnOf:              X,
+		Status:              Playing,
+		EndReason:           NotEnded,
+		StartedAt:           time.Now(),
+		EndedAt:             shared.Nullable[time.Time]{IsNull: true},
 	}
 }
 
@@ -67,7 +94,7 @@ func (match *CaroMatch) Move(player CaroPiece, x int, y int) error {
 	if player != X && player != O {
 		return fmt.Errorf("invalid input")
 	}
-	if match.IsEnded {
+	if match.Status != Playing {
 		return fmt.Errorf("match ended")
 	}
 	if match.TurnOf != player {
@@ -97,7 +124,9 @@ func (match *CaroMatch) Move(player CaroPiece, x int, y int) error {
 
 	// check draw
 	if len(match.Moves) == CARO_BOARD_SIZE*CARO_BOARD_SIZE {
-		match.IsEnded = true
+		match.Status = Draw
+		match.EndReason = FullBoard
+		match.EndedAt = shared.Nullable[time.Time]{Value: validMove.PlayedAt}
 		return nil
 	}
 
@@ -108,21 +137,24 @@ func (match *CaroMatch) Move(player CaroPiece, x int, y int) error {
 	}
 
 	if isWin {
-		match.Winner = validMove.Piece
-		match.IsEnded = true
+		match.Status = XWon
+		if validMove.Piece == O {
+			match.Status = OWon
+		}
+		match.EndReason = FiveInRow
+		match.EndedAt = shared.Nullable[time.Time]{Value: validMove.PlayedAt}
 	}
 
 	return nil
 }
 
 func (match *CaroMatch) OutOfTime() {
-	ootPlayer := match.TurnOf
-	if ootPlayer == X {
-		match.Winner = O
-	} else {
-		match.Winner = X
+	match.Status = OWon
+	if match.TurnOf == O {
+		match.Status = XWon
 	}
-	match.IsEnded = true
+	match.EndReason = OutOfTime
+	match.EndedAt = shared.Nullable[time.Time]{Value: time.Now()}
 }
 
 var caroDirections = [4][2]int{

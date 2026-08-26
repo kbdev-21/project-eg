@@ -70,20 +70,16 @@ function handleServerMessage(message: ServerMessage) {
   stateStore.state = message.state;
   stateStore.hydrated = true;
 
-  const currentMatch = message.data?.currentMatch ?? null;
-  const endedMatch = message.data?.endedMatch ?? null;
+  const match = message.data?.match ?? null;
 
-  if (endedMatch) {
-    stateStore.endedMatch = endedMatch;
-    stateStore.endedReason =
-      message.code === "CARO:MATCH_ENDED_OUT_OF_TIME" ? "OUT_OF_TIME" : "NORMAL";
-    stateStore.currentMatch = null;
-  } else if (currentMatch) {
-    stateStore.currentMatch = currentMatch;
-    stateStore.endedMatch = null;
-    stateStore.endedReason = null;
-  } else if (message.state !== "PLAYING_CARO") {
-    stateStore.currentMatch = null;
+  if (match) {
+    stateStore.match = match;
+  } else if (
+    message.state !== "PLAYING_CARO" &&
+    stateStore.match?.status === "PLAYING"
+  ) {
+    // chỉ dọn match mình tưởng còn sống; match đã kết thúc giữ lại để hiện kết quả
+    stateStore.match = null;
   }
 
   if (message.code === "ERROR") {

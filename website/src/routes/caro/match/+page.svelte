@@ -8,7 +8,6 @@
   import { sendCaroPlayMoveMessage } from "$lib/core/websocket";
   import { authStore } from "$lib/stores/auth-store.svelte";
   import { stateStore } from "$lib/stores/state-store.svelte";
-  import type { CaroBoard, CaroPiece } from "$lib/stores/state-store.svelte";
 
   type Mark = "X" | "O";
 
@@ -17,13 +16,13 @@
     O: "#d52e33",
   };
 
-  const match = $derived(stateStore.currentMatch);
-  const ended = $derived(stateStore.endedMatch);
+  const match = $derived(stateStore.match);
+  const isEnded = $derived(!!match && match.status !== "PLAYING");
 
   // Vào thẳng URL khi không có trận -> về sảnh.
   // Chờ hydrated để F5 giữa trận không bị đá về sảnh trước khi PING trả state.
   $effect(() => {
-    if (stateStore.hydrated && !match && !ended) goto("/caro");
+    if (stateStore.hydrated && !match) goto("/caro");
   });
 
   const meQuery = createQuery(() => ({
@@ -33,61 +32,53 @@
   }));
   const meId = $derived(meQuery.data?.id);
 
-  // id 2 bên lấy từ match đang chơi, hoặc từ kết quả khi trận đã kết thúc
-  const xPlayerId = $derived(match?.xPlayerId ?? ended?.xPlayerId);
-  const oPlayerId = $derived(match?.oPlayerId ?? ended?.oPlayerId);
-
   const xUserQuery = createQuery(() => ({
-    queryKey: ["user", xPlayerId],
-    queryFn: () => getUserById(xPlayerId!),
-    enabled: !!xPlayerId,
+    queryKey: ["user", match?.xPlayerId],
+    queryFn: () => getUserById(match!.xPlayerId),
+    enabled: !!match,
   }));
   const oUserQuery = createQuery(() => ({
-    queryKey: ["user", oPlayerId],
-    queryFn: () => getUserById(oPlayerId!),
-    enabled: !!oPlayerId,
+    queryKey: ["user", match?.oPlayerId],
+    queryFn: () => getUserById(match!.oPlayerId),
+    enabled: !!match,
   }));
 
-  const mySide: Mark = $derived(xPlayerId && xPlayerId === meId ? "X" : "O");
+  const mySide: Mark = $derived(match && match.xPlayerId === meId ? "X" : "O");
   const oppSide: Mark = $derived(mySide === "X" ? "O" : "X");
-  const isMyTurn = $derived(!!match && !match.isEnded && match.turnOf === mySide);
+  const isMyTurn = $derived(!!match && !isEnded && match.turnOf === mySide);
 
-  const emptyBoard: CaroBoard = Array.from({ length: CARO_BOARD_SIZE }, () =>
-    Array.from({ length: CARO_BOARD_SIZE }, () => "" as CaroPiece),
-  );
-
-  // board[y][x]; khi trận kết thúc thì dùng finalBoard
-  const board: CaroBoard = $derived(match?.board ?? ended?.finalBoard ?? emptyBoard);
-
-  const lastMove = $derived((match?.moves ?? ended?.moves ?? []).at(-1));
+  const lastMove = $derived(match?.moves.at(-1));
 
   // --- Đồng hồ 20s/nước ---
-  // Không có field lastMoveAt: deadline suy ra từ nước cuối, fallback startedAt.
+  // Không có field deadline: suy ra từ nước cuối, fallback startedAt.
   // playedAt là giờ server nên lệch đồng hồ máy sẽ làm countdown lệch; server mới là trọng tài.
   let now = $state(Date.now());
 
   $effect(() => {
-    if (!match || match.isEnded) return;
+    if (!match || isEnded) return;
     const id = setInterval(() => (now = Date.now()), 250);
     return () => clearInterval(id);
   });
 
-  const deadline = $derived(
-    match
-      ? new Date(lastMove?.playedAt ?? match.startedAt).getTime() +
-          CARO_MAX_MOVE_TIME_MS
-      : 0,
-  );
-  const remainMs = $derived(match && !match.isEnded ? Math.max(0, deadline - now) : 0);
+  const remainMs = $derived.by(() => {
+    if (!match || isEnded) return 0;
+    const deadline =
+      new Date(lastMove?.playedAt ?? match.startedAt).getTime() +
+      CARO_MAX_MOVE_TIME_MS;
+    return Math.max(0, deadline - now);
+  });
+
+  function isActive(side: Mark) {
+    return !!match && !isEnded && match.turnOf === side;
+  }
 
   function clockOf(side: Mark) {
-    if (!match || match.isEnded || match.turnOf !== side) return "0:20";
-    const s = Math.ceil(remainMs / 1000);
-    return `0:${String(s).padStart(2, "0")}`;
+    if (!isActive(side)) return "0:20";
+    return `0:${String(Math.ceil(remainMs / 1000)).padStart(2, "0")}`;
   }
 
   function progressOf(side: Mark) {
-    if (!match || match.isEnded || match.turnOf !== side) return 1;
+    if (!isActive(side)) return 1;
     return remainMs / CARO_MAX_MOVE_TIME_MS;
   }
 
@@ -99,20 +90,19 @@
 
   // --- Kết quả trận ---
   const myRatingBefore = $derived(
-    mySide === "X" ? ended?.xPlayerRatingBefore : ended?.oPlayerRatingBefore,
+    mySide === "X" ? match?.xPlayerRatingBefore : match?.oPlayerRatingBefore,
   );
   const myRatingAfter = $derived(
-    mySide === "X" ? ended?.xPlayerRatingAfter : ended?.oPlayerRatingAfter,
+    mySide === "X" ? match?.xPlayerRatingAfter : match?.oPlayerRatingAfter,
   );
   const ratingDelta = $derived((myRatingAfter ?? 0) - (myRatingBefore ?? 0));
 
-  // winnerId null = hoà (endedMatch không có field winner "X"/"O")
   const resultLabel = $derived(
-    !ended
+    !match || !isEnded
       ? ""
-      : ended.winnerId === null
+      : match.status === "DRAW"
         ? "Hoà"
-        : ended.winnerId === meId
+        : match.status === `${mySide}_WON`
           ? "Bạn thắng 🎉"
           : "Bạn thua",
   );
@@ -120,8 +110,7 @@
   const queryClient = useQueryClient();
 
   function backToLobby() {
-    stateStore.endedMatch = null;
-    stateStore.endedReason = null;
+    stateStore.match = null;
     // rating vừa đổi sau trận -> lấy lại cho PlayerCard ở sảnh
     queryClient.invalidateQueries({ queryKey: ["me"] });
     goto("/caro");
@@ -180,15 +169,13 @@
 {#snippet playerBarFor(side: Mark)}
   {@const user = side === "X" ? xUserQuery.data : oUserQuery.data}
   {@const rating =
-    side === "X"
-      ? (match?.xPlayerRating ?? ended?.xPlayerRatingAfter ?? 0)
-      : (match?.oPlayerRating ?? ended?.oPlayerRatingAfter ?? 0)}
+    (side === "X" ? match?.xPlayerRatingBefore : match?.oPlayerRatingBefore) ?? 0}
   {@render playerBar(
     side,
     user?.name ?? "…",
     rating,
     user ? AVATARS[user.avtCode] : undefined,
-    !!match && !match.isEnded && match.turnOf === side,
+    isActive(side),
     progressOf(side),
     clockOf(side),
   )}
@@ -201,7 +188,7 @@
       class="flex items-center justify-center gap-2 text-xs font-bold tracking-wider text-neutral-500 uppercase"
     >
       <span class="h-1.5 w-1.5 rounded-full bg-amber-400"></span>
-      {#if ended}
+      {#if isEnded}
         Trận đã kết thúc
       {:else if isMyTurn}
         Lượt của bạn
@@ -220,7 +207,7 @@
         class="grid aspect-square w-full gap-px overflow-hidden rounded-lg bg-gray-200"
         style="grid-template-columns: repeat({CARO_BOARD_SIZE}, minmax(0, 1fr)); grid-template-rows: repeat({CARO_BOARD_SIZE}, minmax(0, 1fr));"
       >
-        {#each board as rowCells, y}
+        {#each match?.board ?? [] as rowCells, y}
           {#each rowCells as piece, x}
             <button
               type="button"
@@ -243,7 +230,7 @@
         {/each}
       </div>
 
-      {#if ended}
+      {#if match && isEnded}
         <div
           class="absolute inset-0 flex items-center justify-center rounded-lg bg-white/70"
         >
@@ -252,7 +239,7 @@
           >
             <div class="text-center text-lg font-bold">{resultLabel}</div>
 
-            {#if stateStore.endedReason === "OUT_OF_TIME"}
+            {#if match.endReason === "OUT_OF_TIME"}
               <div class="-mt-3 text-center text-xs text-neutral-400">Hết giờ</div>
             {/if}
 

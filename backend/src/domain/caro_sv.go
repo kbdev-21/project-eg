@@ -12,77 +12,83 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 )
 
-type CaroMatchResult struct {
-	Id                  uuid.UUID                  `json:"id"`
-	XPlayerId           uuid.UUID                  `json:"xPlayerId"`
-	XPlayerRatingBefore int                        `json:"xPlayerRatingBefore"`
-	XPlayerRatingAfter  int                        `json:"xPlayerRatingAfter"`
-	OPlayerId           uuid.UUID                  `json:"oPlayerId"`
-	OPlayerRatingBefore int                        `json:"oPlayerRatingBefore"`
-	OPlayerRatingAfter  int                        `json:"oPlayerRatingAfter"`
-	WinnerId            shared.Nullable[uuid.UUID] `json:"winnerId"`
-	FinalBoard          CaroBoard                  `json:"finalBoard"`
-	Moves               []CaroMove                 `json:"moves"`
-	CreatedAt           time.Time                  `json:"createdAt"`
-	UpdatedAt           time.Time                  `json:"updatedAt"`
-}
-
-func ToCaroMatchResult(m db.CaroMatch) (CaroMatchResult, error) {
-	var finalBoard CaroBoard
-	err := json.Unmarshal(m.FinalBoard, &finalBoard)
+func ToCaroMatch(m db.CaroMatch) (CaroMatch, error) {
+	var board CaroBoard
+	err := json.Unmarshal(m.Board, &board)
 	if err != nil {
-		return CaroMatchResult{}, err
+		return CaroMatch{}, err
 	}
 
 	var moves []CaroMove
 	err = json.Unmarshal(m.Moves, &moves)
 	if err != nil {
-		return CaroMatchResult{}, err
+		return CaroMatch{}, err
 	}
 
-	return CaroMatchResult{
+	// X luôn đi trước nên lượt suy ra được từ số nước đã đánh, không cần cột riêng
+	turnOf := X
+	if len(moves)%2 == 1 {
+		turnOf = O
+	}
+
+	return CaroMatch{
 		Id:                  uuid.UUID(m.ID.Bytes),
+		IsRated:             m.IsRated,
 		XPlayerId:           uuid.UUID(m.XPlayerID.Bytes),
 		XPlayerRatingBefore: int(m.XPlayerRatingBefore),
-		XPlayerRatingAfter:  int(m.XPlayerRatingAfter),
+		XPlayerRatingAfter:  shared.Nullable[int]{Value: int(m.XPlayerRatingAfter.Int32), IsNull: !m.XPlayerRatingAfter.Valid},
 		OPlayerId:           uuid.UUID(m.OPlayerID.Bytes),
 		OPlayerRatingBefore: int(m.OPlayerRatingBefore),
-		OPlayerRatingAfter:  int(m.OPlayerRatingAfter),
-		WinnerId:            shared.Nullable[uuid.UUID]{Value: uuid.UUID(m.WinnerID.Bytes), IsNull: !m.WinnerID.Valid},
-		FinalBoard:          finalBoard,
+		OPlayerRatingAfter:  shared.Nullable[int]{Value: int(m.OPlayerRatingAfter.Int32), IsNull: !m.OPlayerRatingAfter.Valid},
+		Board:               board,
 		Moves:               moves,
-		CreatedAt:           m.CreatedAt.Time,
-		UpdatedAt:           m.UpdatedAt.Time,
+		TurnOf:              turnOf,
+		Status:              CaroStatus(m.Status),
+		EndReason:           CaroEndReason(m.EndReason),
+		StartedAt:           m.StartedAt.Time,
+		EndedAt:             shared.Nullable[time.Time]{Value: m.EndedAt.Time, IsNull: !m.EndedAt.Valid},
 	}, nil
 }
 
-func (a *AppState) GetCaroMatchResultById(ctx context.Context, id uuid.UUID) (CaroMatchResult, error) {
+func (a *AppState) GetCaroMatchById(ctx context.Context, id uuid.UUID) (CaroMatch, error) {
 	m, err := a.q.GetCaroMatchById(ctx, pgtype.UUID{Bytes: id, Valid: true})
 	if err != nil {
-		return CaroMatchResult{}, err
+		return CaroMatch{}, err
 	}
-	return ToCaroMatchResult(m)
+	return ToCaroMatch(m)
 }
 
-func (a *AppState) ProcessCaroMatchEnded(ctx context.Context, m CaroMatch) (CaroMatchResult, error) {
+// ProcessCaroMatchEnded lưu match đã kết thúc xuống DB, cập nhật rating 2 bên,
+// dọn match khỏi RAM và trả về chính match đó với rating sau trận đã điền.
+func (a *AppState) ProcessCaroMatchEnded(ctx context.Context, m CaroMatch) (CaroMatch, error) {
 	result := 0
 	winnerId := pgtype.UUID{}
-	if m.Winner == X {
+	if m.Status == XWon {
 		result = 1
 		winnerId = pgtype.UUID{Bytes: m.XPlayerId, Valid: true}
 	}
-	if m.Winner == O {
+	if m.Status == OWon {
 		result = -1
 		winnerId = pgtype.UUID{Bytes: m.OPlayerId, Valid: true}
 	}
-	xRatingChange := calculateRatingChange(m.XPlayerRating, m.OPlayerRating, result)
-	oRatingChange := calculateRatingChange(m.OPlayerRating, m.XPlayerRating, -result)
-	encodedBoard, _ := json.Marshal(m.Board)
-	encodedMoves, _ := json.Marshal(m.Moves)
+
+	xRatingChange := calculateRatingChange(m.XPlayerRatingBefore, m.OPlayerRatingBefore, result)
+	oRatingChange := calculateRatingChange(m.OPlayerRatingBefore, m.XPlayerRatingBefore, -result)
+	m.XPlayerRatingAfter = shared.Nullable[int]{Value: m.XPlayerRatingBefore + xRatingChange}
+	m.OPlayerRatingAfter = shared.Nullable[int]{Value: m.OPlayerRatingBefore + oRatingChange}
+
+	encodedBoard, err := json.Marshal(m.Board)
+	if err != nil {
+		return CaroMatch{}, err
+	}
+	encodedMoves, err := json.Marshal(m.Moves)
+	if err != nil {
+		return CaroMatch{}, err
+	}
 
 	tx, err := a.p.Begin(ctx)
 	if err != nil {
-		return CaroMatchResult{}, err
+		return CaroMatch{}, err
 	}
 	defer tx.Rollback(ctx)
 
@@ -90,33 +96,38 @@ func (a *AppState) ProcessCaroMatchEnded(ctx context.Context, m CaroMatch) (Caro
 
 	err = txq.InsertCaroMatch(ctx, db.InsertCaroMatchParams{
 		ID:                  pgtype.UUID{Bytes: m.Id, Valid: true},
+		IsRated:             m.IsRated,
 		XPlayerID:           pgtype.UUID{Bytes: m.XPlayerId, Valid: true},
-		XPlayerRatingBefore: int32(m.XPlayerRating),
-		XPlayerRatingAfter:  int32(m.XPlayerRating + xRatingChange),
+		XPlayerRatingBefore: int32(m.XPlayerRatingBefore),
+		XPlayerRatingAfter:  pgtype.Int4{Int32: int32(m.XPlayerRatingAfter.Value), Valid: !m.XPlayerRatingAfter.IsNull},
 		OPlayerID:           pgtype.UUID{Bytes: m.OPlayerId, Valid: true},
-		OPlayerRatingBefore: int32(m.OPlayerRating),
-		OPlayerRatingAfter:  int32(m.OPlayerRating + oRatingChange),
+		OPlayerRatingBefore: int32(m.OPlayerRatingBefore),
+		OPlayerRatingAfter:  pgtype.Int4{Int32: int32(m.OPlayerRatingAfter.Value), Valid: !m.OPlayerRatingAfter.IsNull},
 		WinnerID:            winnerId,
-		FinalBoard:          encodedBoard,
+		Status:              string(m.Status),
+		EndReason:           string(m.EndReason),
+		Board:               encodedBoard,
 		Moves:               encodedMoves,
+		StartedAt:           pgtype.Timestamptz{Time: m.StartedAt, Valid: true},
+		EndedAt:             pgtype.Timestamptz{Time: m.EndedAt.Value, Valid: !m.EndedAt.IsNull},
 	})
 	if err != nil {
-		return CaroMatchResult{}, err
+		return CaroMatch{}, err
 	}
 
 	err = txq.UpdateUserCaroRating(ctx, db.UpdateUserCaroRatingParams{ID: pgtype.UUID{Bytes: m.XPlayerId, Valid: true}, CaroRating: int32(xRatingChange)})
 	if err != nil {
-		return CaroMatchResult{}, err
+		return CaroMatch{}, err
 	}
 
 	err = txq.UpdateUserCaroRating(ctx, db.UpdateUserCaroRatingParams{ID: pgtype.UUID{Bytes: m.OPlayerId, Valid: true}, CaroRating: int32(oRatingChange)})
 	if err != nil {
-		return CaroMatchResult{}, err
+		return CaroMatch{}, err
 	}
 
 	err = tx.Commit(ctx)
 	if err != nil {
-		return CaroMatchResult{}, err
+		return CaroMatch{}, err
 	}
 
 	a.mu.Lock()
@@ -136,7 +147,7 @@ func (a *AppState) ProcessCaroMatchEnded(ctx context.Context, m CaroMatch) (Caro
 
 	a.mu.Unlock()
 
-	return a.GetCaroMatchResultById(ctx, m.Id)
+	return m, nil
 }
 
 // result: -1 lose, 0 draw, 1 win

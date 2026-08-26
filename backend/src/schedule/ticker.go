@@ -28,18 +28,18 @@ func checkAllCaroMatchesTimeout(a *domain.AppState, hub *router.WsConnHub) {
 		}
 		if time.Since(lastAction) > domain.CARO_MAX_MOVE_TIME {
 			m.OutOfTime()
-			matchResult, err := a.ProcessCaroMatchEnded(ctx, *m)
+			endedMatch, err := a.ProcessCaroMatchEnded(ctx, *m)
 			if err != nil {
 				continue
 			}
 
-			xSes, xExisted := a.GetUserSession(matchResult.XPlayerId)
-			oSes, oExisted := a.GetUserSession(matchResult.OPlayerId)
+			xSes, xExisted := a.GetUserSession(endedMatch.XPlayerId)
+			oSes, oExisted := a.GetUserSession(endedMatch.OPlayerId)
 
 			if xExisted {
 				xMsg := router.BuildServerMessage(router.CaroMatchEndedOutOfTime, *xSes, a)
 				xMsg.Data = map[string]any{
-					"endedMatch": matchResult,
+					"match": endedMatch,
 				}
 				hub.Send(xSes.UserId, xMsg)
 			}
@@ -47,7 +47,7 @@ func checkAllCaroMatchesTimeout(a *domain.AppState, hub *router.WsConnHub) {
 			if oExisted {
 				oMsg := router.BuildServerMessage(router.CaroMatchEndedOutOfTime, *oSes, a)
 				oMsg.Data = map[string]any{
-					"endedMatch": matchResult,
+					"match": endedMatch,
 				}
 				hub.Send(oSes.UserId, oMsg)
 			}

@@ -2,6 +2,10 @@ export type UserState = "IDLE" | "QUEUING_CARO" | "PLAYING_CARO";
 
 export type CaroPiece = "" | "X" | "O";
 
+export type CaroStatus = "PLAYING" | "X_WON" | "O_WON" | "DRAW";
+
+export type CaroEndReason = "" | "FIVE_IN_ROW" | "FULL_BOARD" | "OUT_OF_TIME";
+
 export type CaroMove = {
   piece: CaroPiece;
   x: number;
@@ -12,53 +16,35 @@ export type CaroMove = {
 // board[y][x] - backend index y trước (domain/caro.go)
 export type CaroBoard = CaroPiece[][];
 
+// Dùng chung cho match đang chơi lẫn match đã kết thúc.
+// Field null = chỉ biết sau khi trận kết thúc.
 export type CaroMatch = {
   id: string;
   isRated: boolean;
   xPlayerId: string;
-  xPlayerRating: number;
+  xPlayerRatingBefore: number;
+  xPlayerRatingAfter: number | null;
   oPlayerId: string;
-  oPlayerRating: number;
+  oPlayerRatingBefore: number;
+  oPlayerRatingAfter: number | null;
   board: CaroBoard;
   moves: CaroMove[];
   turnOf: CaroPiece;
-  winner: CaroPiece;
-  isEnded: boolean;
+  status: CaroStatus;
+  endReason: CaroEndReason;
   startedAt: string;
+  endedAt: string | null;
 };
-
-// db.CaroMatch được embed nên các field bị flatten ra cùng cấp.
-// winnerId = null nghĩa là hoà. Không có field winner ("X"/"O") ở đây.
-export type CaroMatchResult = {
-  id: string;
-  xPlayerId: string;
-  xPlayerRatingBefore: number;
-  xPlayerRatingAfter: number;
-  oPlayerId: string;
-  oPlayerRatingBefore: number;
-  oPlayerRatingAfter: number;
-  winnerId: string | null;
-  finalBoard: CaroBoard;
-  moves: CaroMove[];
-  createdAt: string | null;
-  updatedAt: string | null;
-};
-
-export type MatchEndedReason = "NORMAL" | "OUT_OF_TIME";
 
 export const stateStore = $state<{
   state: UserState;
-  currentMatch: CaroMatch | null;
-  endedMatch: CaroMatchResult | null;
-  endedReason: MatchEndedReason | null;
+  match: CaroMatch | null;
   connected: boolean;
   // đã nhận ít nhất 1 message từ server -> state bên dưới mới đáng tin
   hydrated: boolean;
 }>({
   state: "IDLE",
-  currentMatch: null,
-  endedMatch: null,
-  endedReason: null,
+  match: null,
   connected: false,
   hydrated: false,
 });
