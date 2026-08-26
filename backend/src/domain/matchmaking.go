@@ -5,7 +5,6 @@ import (
 	"fmt"
 
 	"github.com/google/uuid"
-	"github.com/jackc/pgx/v5/pgtype"
 )
 
 type MmQueue []User
@@ -26,15 +25,15 @@ func (a *AppState) UserJoinCaroQueue(ctx context.Context, uSes *UserSession) (*C
 
 	if len(a.caroQueue) > 0 {
 		xPlayer := a.caroQueue[0]
-		a.caroQueue = removedUserFromMmQueue(xPlayer.ID, a.caroQueue)
+		a.caroQueue = removedUserFromMmQueue(xPlayer.Id, a.caroQueue)
 
 		oPlayer := newU
 
 		matchId := uuid.Must(uuid.NewV7())
-		a.caroMatchesMap[matchId] = NewCaroMatch(matchId, true, xPlayer.ID, int(xPlayer.CaroRating), oPlayer.ID, int(oPlayer.CaroRating))
+		a.caroMatchesMap[matchId] = NewCaroMatch(matchId, true, xPlayer.Id, xPlayer.CaroRating, oPlayer.Id, oPlayer.CaroRating)
 
-		xSession := a.userSessionsMap[xPlayer.ID]
-		oSession := a.userSessionsMap[oPlayer.ID]
+		xSession := a.userSessionsMap[xPlayer.Id]
+		oSession := a.userSessionsMap[oPlayer.Id]
 
 		xSession.State = PlayingCaro
 		xSession.CurrentMatchId = matchId
@@ -66,9 +65,9 @@ func (a *AppState) UserLeaveCaroQueue(us *UserSession) error {
 	return nil
 }
 
-func removedUserFromMmQueue(uId pgtype.UUID, q MmQueue) MmQueue {
+func removedUserFromMmQueue(uId uuid.UUID, q MmQueue) MmQueue {
 	for i, u := range q {
-		if u.ID == uId {
+		if u.Id == uId {
 			return append(q[:i], q[i+1:]...)
 		}
 	}

@@ -4,23 +4,23 @@ import (
 	"sync"
 
 	"github.com/gofiber/contrib/v3/websocket"
-	"github.com/jackc/pgx/v5/pgtype"
+	"github.com/google/uuid"
 )
 
 type WsConnHub struct {
 	mu       sync.Mutex
-	connsMap map[pgtype.UUID]*websocket.Conn
+	connsMap map[uuid.UUID]*websocket.Conn
 }
 
 func NewWsConnHub() *WsConnHub {
 	return &WsConnHub{
 		mu:       sync.Mutex{},
-		connsMap: map[pgtype.UUID]*websocket.Conn{},
+		connsMap: map[uuid.UUID]*websocket.Conn{},
 	}
 }
 
 // Register attaches c to userId, closing any previous connection for that user.
-func (h *WsConnHub) Register(userId pgtype.UUID, c *websocket.Conn) {
+func (h *WsConnHub) Register(userId uuid.UUID, c *websocket.Conn) {
 	h.mu.Lock()
 	defer h.mu.Unlock()
 
@@ -32,7 +32,7 @@ func (h *WsConnHub) Register(userId pgtype.UUID, c *websocket.Conn) {
 
 // Unregister removes userId's connection only if it still points to c,
 // avoiding clobbering a newer connection after a reconnect.
-func (h *WsConnHub) Unregister(userId pgtype.UUID, c *websocket.Conn) {
+func (h *WsConnHub) Unregister(userId uuid.UUID, c *websocket.Conn) {
 	h.mu.Lock()
 	defer h.mu.Unlock()
 
@@ -43,7 +43,7 @@ func (h *WsConnHub) Unregister(userId pgtype.UUID, c *websocket.Conn) {
 
 // Send writes msg as JSON to userId's connection if one exists.
 // The lock is held during WriteJSON so no two goroutines write the same conn.
-func (h *WsConnHub) Send(userId pgtype.UUID, msg any) {
+func (h *WsConnHub) Send(userId uuid.UUID, msg any) {
 	h.mu.Lock()
 	defer h.mu.Unlock()
 

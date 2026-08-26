@@ -33,8 +33,8 @@ func checkAllCaroMatchesTimeout(a *domain.AppState, hub *router.WsConnHub) {
 				continue
 			}
 
-			xSes, xExisted := a.GetUserSession(matchResult.XPlayerID)
-			oSes, oExisted := a.GetUserSession(matchResult.OPlayerID)
+			xSes, xExisted := a.GetUserSession(matchResult.XPlayerId)
+			oSes, oExisted := a.GetUserSession(matchResult.OPlayerId)
 
 			if xExisted {
 				xMsg := router.BuildServerMessage(router.CaroMatchEndedOutOfTime, *xSes, a)

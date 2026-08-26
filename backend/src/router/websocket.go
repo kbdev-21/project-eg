@@ -46,7 +46,7 @@ const (
 
 func InitWsRoute(fib *fiber.App, a *domain.AppState, cfg config.Config, hub *WsConnHub) {
 	fib.Get("/ws", wsAuthMiddleware(a, cfg), websocket.New(func(wsc *websocket.Conn) {
-		uId := wsc.Locals("currentUser").(domain.User).ID
+		uId := wsc.Locals("currentUser").(domain.User).Id
 
 		// save userSession
 		userSession := a.GetOrCreateUserSession(uId)

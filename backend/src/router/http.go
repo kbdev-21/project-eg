@@ -3,10 +3,10 @@ package router
 import (
 	"backend/src/config"
 	"backend/src/domain"
-	"backend/src/shared"
 
 	"github.com/go-playground/validator/v10"
 	"github.com/gofiber/fiber/v3"
+	"github.com/google/uuid"
 )
 
 func InitHttpRoutes(fib *fiber.App, a *domain.AppState, cfg config.Config) {
@@ -39,7 +39,7 @@ func updateMeHandler(a *domain.AppState) fiber.Handler {
 
 		u := ctx.Locals("currentUser").(domain.User)
 
-		updatedUser, err := a.UpdateUserInfo(ctx, u.ID, req)
+		updatedUser, err := a.UpdateUserInfo(ctx, u.Id, req)
 		if err != nil {
 			return ctx.SendStatus(409)
 		}
@@ -50,7 +50,7 @@ func updateMeHandler(a *domain.AppState) fiber.Handler {
 
 func getUserByIdHandler(a *domain.AppState) fiber.Handler {
 	return func(ctx fiber.Ctx) error {
-		id, err := shared.ParseStringToUuid(ctx.Params("id", ""))
+		id, err := uuid.Parse(ctx.Params("id", ""))
 		if err != nil {
 			return ctx.SendStatus(400)
 		}

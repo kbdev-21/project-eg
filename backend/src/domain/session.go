@@ -2,11 +2,10 @@ package domain
 
 import (
 	"github.com/google/uuid"
-	"github.com/jackc/pgx/v5/pgtype"
 )
 
 type UserSession struct {
-	UserId         pgtype.UUID      `json:"userId"`
+	UserId         uuid.UUID        `json:"userId"`
 	State          UserSessionState `json:"state"`
 	CurrentMatchId uuid.UUID        `json:"currentMatchId"` // Nil = not playing/watching
 }

@@ -5,14 +5,13 @@ import (
 	"sync"
 
 	"github.com/google/uuid"
-	"github.com/jackc/pgx/v5/pgtype"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
 type AppState struct {
 	// states
 	mu              sync.Mutex
-	userSessionsMap map[pgtype.UUID]*UserSession
+	userSessionsMap map[uuid.UUID]*UserSession
 	caroQueue       MmQueue
 	caroMatchesMap  map[uuid.UUID]*CaroMatch
 
@@ -24,7 +23,7 @@ type AppState struct {
 func InitAppState(q *db.Queries, p *pgxpool.Pool) *AppState {
 	return &AppState{
 		mu:              sync.Mutex{},
-		userSessionsMap: map[pgtype.UUID]*UserSession{},
+		userSessionsMap: map[uuid.UUID]*UserSession{},
 		caroQueue:       MmQueue{},
 		caroMatchesMap:  map[uuid.UUID]*CaroMatch{},
 		q: q,
@@ -32,7 +31,7 @@ func InitAppState(q *db.Queries, p *pgxpool.Pool) *AppState {
 	}
 }
 
-func (a *AppState) GetUserSession(userId pgtype.UUID) (*UserSession, bool) {
+func (a *AppState) GetUserSession(userId uuid.UUID) (*UserSession, bool) {
 	a.mu.Lock()
 	defer a.mu.Unlock()
 
@@ -41,7 +40,7 @@ func (a *AppState) GetUserSession(userId pgtype.UUID) (*UserSession, bool) {
 	return session, existed
 }
 
-func (a *AppState) GetOrCreateUserSession(userId pgtype.UUID) *UserSession {
+func (a *AppState) GetOrCreateUserSession(userId uuid.UUID) *UserSession {
 	a.mu.Lock()
 	defer a.mu.Unlock()
 

@@ -5,23 +5,10 @@ import (
 	"strings"
 	"unicode"
 
-	"github.com/google/uuid"
-	"github.com/jackc/pgx/v5/pgtype"
 	"golang.org/x/text/runes"
 	"golang.org/x/text/transform"
 	"golang.org/x/text/unicode/norm"
 )
-
-func ParseStringToUuid(s string) (pgtype.UUID, error) {
-	uid, err := uuid.Parse(s)
-	if(err != nil) {
-		return pgtype.UUID{}, err
-	}
-	return pgtype.UUID{
-		Bytes: uid,
-		Valid: true,
-	}, nil
-}
 
 func CapitalizeString(s string) string {
 	if s == "" {

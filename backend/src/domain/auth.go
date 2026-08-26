@@ -4,14 +4,23 @@ import (
 	"backend/src/db"
 	"backend/src/shared"
 	"context"
-	"github.com/jackc/pgx/v5/pgtype"
 	"strconv"
+	"time"
+
+	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5/pgtype"
 )
 
 type User struct {
-	db.User
-	Role    UserRole    `json:"role"`
-	AvtCode UserAvtCode `json:"avtCode"`
+	Id             uuid.UUID               `json:"id"`
+	Role           UserRole                `json:"role"`
+	Name           string                  `json:"name"`
+	NormalizedName string                  `json:"normalizedName"`
+	AvtCode        UserAvtCode             `json:"avtCode"`
+	Email          shared.Nullable[string] `json:"email"`
+	CaroRating     int                     `json:"caroRating"`
+	CreatedAt      time.Time               `json:"createdAt"`
+	UpdatedAt      time.Time               `json:"updatedAt"`
 }
 
 type UserRole string
@@ -35,14 +44,20 @@ const (
 
 func ToUser(u db.User) User {
 	return User{
-		User:    u,
-		Role:    UserRole(u.Role),
-		AvtCode: UserAvtCode(u.AvtCode),
+		Id:             uuid.UUID(u.ID.Bytes),
+		Role:           UserRole(u.Role),
+		Name:           u.Name,
+		NormalizedName: u.NormalizedName,
+		AvtCode:        UserAvtCode(u.AvtCode),
+		Email:          shared.Nullable[string]{Value: u.Email.String, IsNull: !u.Email.Valid},
+		CaroRating:     int(u.CaroRating),
+		CreatedAt:      u.CreatedAt.Time,
+		UpdatedAt:      u.UpdatedAt.Time,
 	}
 }
 
-func (a *AppState) GetUserById(ctx context.Context, id pgtype.UUID) (User, error) {
-	dbU, err := a.q.GetUserById(ctx, id)
+func (a *AppState) GetUserById(ctx context.Context, id uuid.UUID) (User, error) {
+	dbU, err := a.q.GetUserById(ctx, pgtype.UUID{Bytes: id, Valid: true})
 	return ToUser(dbU), err
 }
 
@@ -56,19 +71,19 @@ type UpdateUserReq struct {
 	AvtCode string `json:"avtCode" validate:"required,oneof=BUNNY KITTY TEDDY HAMSTER MONKEY PIGGY"` // from UserAvtCode
 }
 
-func (a *AppState) UpdateUserInfo(ctx context.Context, id pgtype.UUID, req UpdateUserReq) (User, error) {
+func (a *AppState) UpdateUserInfo(ctx context.Context, id uuid.UUID, req UpdateUserReq) (User, error) {
 	existingUser, err := a.GetUserById(ctx, id)
 	if err != nil {
 		return User{}, err
 	}
 
 	err = a.q.UpdateUser(ctx, db.UpdateUserParams{
-		ID:      id,
-		Role:    string(existingUser.Role),
-		Name:    req.Name,
+		ID:             pgtype.UUID{Bytes: id, Valid: true},
+		Role:           string(existingUser.Role),
+		Name:           req.Name,
 		NormalizedName: shared.NormalizedText(req.Name),
-		AvtCode: req.AvtCode,
-		Email:   existingUser.Email,
+		AvtCode:        req.AvtCode,
+		Email:          pgtype.Text{String: existingUser.Email.Value, Valid: !existingUser.Email.IsNull},
 	})
 	if err != nil {
 		return User{}, err
@@ -82,35 +97,30 @@ func (a *AppState) UpdateUserInfo(ctx context.Context, id pgtype.UUID, req Updat
 }
 
 func (a *AppState) SyncUserFromTokenPayload(ctx context.Context, payload TokenPayload) (User, error) {
-	idFromPayload, err := shared.ParseStringToUuid(payload.Sub)
+	idFromPayload, err := uuid.Parse(payload.Sub)
 	if err != nil {
 		return User{}, err
 	}
 
 	updateRole := USER
-	updateEmail := pgtype.Text{
-		String: payload.Email,
-		Valid:  true,
-	}
+	updateEmail := shared.Nullable[string]{Value: payload.Email}
 	if payload.IsAnonymous {
 		updateRole = GUEST
-		updateEmail = pgtype.Text{
-			String: "",
-			Valid:  false,
-		}
+		updateEmail = shared.Nullable[string]{IsNull: true}
 	}
+	dbEmail := pgtype.Text{String: updateEmail.Value, Valid: !updateEmail.IsNull}
 
 	existingUser, err := a.GetUserById(ctx, idFromPayload)
 	// user chưa tồn tại
 	if err != nil {
 		avtCode, name := a.GenRandomUniqueIdentity(ctx, adjs, avtCodes)
 		err := a.q.InsertUser(ctx, db.InsertUserParams{
-			ID:             idFromPayload,
+			ID:             pgtype.UUID{Bytes: idFromPayload, Valid: true},
 			Role:           string(updateRole),
 			Name:           name,
 			NormalizedName: shared.NormalizedText(name),
 			AvtCode:        string(avtCode),
-			Email:          updateEmail,
+			Email:          dbEmail,
 		})
 		if err != nil {
 			return User{}, err
@@ -128,18 +138,18 @@ func (a *AppState) SyncUserFromTokenPayload(ctx context.Context, payload TokenPa
 	}
 
 	err = a.q.UpdateUser(ctx, db.UpdateUserParams{
-		ID:             existingUser.ID,
+		ID:             pgtype.UUID{Bytes: existingUser.Id, Valid: true},
 		Role:           string(updateRole),
 		Name:           existingUser.Name,
 		NormalizedName: existingUser.NormalizedName,
 		AvtCode:        string(existingUser.AvtCode),
-		Email:          updateEmail,
+		Email:          dbEmail,
 	})
 	if err != nil {
 		return User{}, err
 	}
 
-	syncedUser, err := a.q.GetUserById(ctx, idFromPayload)
+	syncedUser, err := a.q.GetUserById(ctx, pgtype.UUID{Bytes: idFromPayload, Valid: true})
 	if err != nil {
 		return User{}, err
 	}
